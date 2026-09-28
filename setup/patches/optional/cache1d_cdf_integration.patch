@@ -1,0 +1,49 @@
+--- Cache1D_mod.py.original	2024-03-09 09:14:57
++++ Cache1D_mod.py.cdf	2025-04-02 17:17:35
+@@ -4,6 +4,14 @@
+ Modified version of the script found at: https://doi.org/10.1534/genetics.116.197145 .
+ Based on scripts from:
+ https://groups.google.com/forum/#!topic/dadi-user/4xspqlITcvc .
++
++2025/03/22
++Modified by: Chenlu Di
++Modify the integrate to calculate weight by CDF for neugamma distribution because scipy.integrate.quad function result large error when scale parameter is very small, e.g. 1e-03.
++
++2025/03/25
++Modified by: Chenlu Di
++Modify the integrate to calculate weight by CDF for gamma distribution to increase accuracy.
+ """
+ 
+ import operator
+@@ -163,11 +171,21 @@
+         # Compute weight for the effectively neutral portion. Not using
+         # CDF function because want this to be able to compute weight
+         # for arbitrary mass functions
+-        weight_neu, err_neu = scipy.integrate.quad(sel_dist, 0, -smallest_gamma,
+-                                                   args=params)
+-        # compute weight for the effectively lethal portion
+-        weight_del, err = scipy.integrate.quad(sel_dist, -largest_gamma, np.inf,
+-                                               args=params)
++        # Specially use CDF for neugamma distribution to increase accuracy for scale at 1e-03.
++        if sel_dist.__name__ == 'neugamma':
++            shape, scale, pneu = params
++            weight_neu = (1-pneu)*scipy.stats.gamma.cdf(-smallest_gamma, a=shape, scale=scale)+pneu
++            weight_del = 1 - (1-pneu)*scipy.stats.gamma.cdf(-largest_gamma, a=shape, scale=scale)-pneu
++        elif sel_dist.__name__ == 'gamma':
++            shape, scale = params
++            weight_neu = scipy.stats.gamma.cdf(-smallest_gamma, a=shape, scale=scale)
++            weight_del = 1 - scipy.stats.gamma.cdf(-largest_gamma, a=shape, scale=scale)
++        else:
++            weight_neu, err_neu = scipy.integrate.quad(sel_dist, 0, -smallest_gamma,
++                                                    args=params)
++            # compute weight for the effectively lethal portion
++            weight_del, err = scipy.integrate.quad(sel_dist, -largest_gamma, np.inf,
++                                                args=params)
+ 
+         fs += self.neu_spec*weight_neu
+         fs += spectra[0]*weight_del
+@@ -224,3 +242,4 @@
+             result += ppos*pos_fs
+ 
+         return result
++

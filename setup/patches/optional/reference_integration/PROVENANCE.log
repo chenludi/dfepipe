@@ -1,0 +1,86 @@
+# Topatch/integration — provenance
+# Assembled 2026-09-28. Every file below was copied, unmodified, from Hoffman2
+# (cdi@hoffman2.idre.ucla.edu). Cluster root abbreviated as:
+#   $NC = /u/home/c/cdi/project-klohmuel/noncdoingdfe
+#   $RD = $NC/test_0118/result_dadi
+#   $SP = $NC/condaenv/dadi0116/lib/python3.12/site-packages
+
+## What this directory is
+
+The stock dadi cache integration (dadi/DFE/Cache1D_mod.py, method Cache1D.integrate)
+computes the two EXTERIOR tail weights with scipy.integrate.quad:
+
+    weight_neu, err_neu = scipy.integrate.quad(sel_dist, 0, -smallest_gamma, args=params)
+    weight_del, err     = scipy.integrate.quad(sel_dist, -largest_gamma, np.inf, args=params)
+
+upstream comment: "Not using CDF function because want this to be able to compute
+weight for arbitrary mass functions". The interior of the sampled gamma range is not
+integrated by quad at all — it is np.trapz over the cached spectra.
+
+The patch here replaces those two quad calls with closed-form gamma CDF expressions
+for the gamma and neugamma pdfs, because quad loses accuracy when the scale parameter
+is very small (the pdf becomes a narrow spike that adaptive quadrature can step over).
+
+The patch is NOT active in the pipeline. Stock quad is what the package uses.
+
+## Patch
+
+patch/Cache1D_mod.py.original      $SP/dadi/DFE/Cache1D_mod.py.original
+                                   mtime 2024-03-09 09:14:57 -0800, md5 8aa27a5b0aab872c6ffcbc09ab9f86d0
+                                   pristine dadi 2.3.3
+patch/Cache1D_mod.py.cdf           $SP/dadi/DFE/Cache1D_mod.py.cdf
+                                   mtime 2025-04-02 17:17:35 -0700, md5 a85f7f8a59dc1ac1d6db00519bb0e517
+                                   header credits: 2025/03/22 neugamma via CDF, 2025/03/25 gamma via CDF
+patch/cache1d_cdf_integration.patch   generated here: diff -u original cdf
+
+The installed $SP/dadi/DFE/Cache1D_mod.py has md5 8aa27a5b0aab872c6ffcbc09ab9f86d0,
+i.e. it is byte-identical to .original: the CDF variant sits beside it but is not
+imported. Its mtime (2025-04-02 17:17:57) is 22 s after the .cdf file, which is the
+moment the stock version was restored.
+
+## Results compared
+
+Both are the same bed (EnhA, nc_EnhA.bed), the same SFS, the same demography
+(three_epoch, Na = 18219.79858004048, theta = 187614.67958247045) and the same cache;
+they differ only in the integration method in force when the DFE was fit.
+
+results_quad/   $RD/backup/has_qui.EnhA_qui2.chrs_1t22_neugamma_beforemodicache.inte/
+                dfe_EnhA_qui2.chrs_1t22_neugamma.csv, large_ll.txt   mtime 2025-03-22 22:58
+                Fit BEFORE the patch was applied -> stock quad.
+                best fit: ll -469.86376860697055, shape 0.013774385984016136,
+                          scale 7561.127002045843, pneu 0.2572268991703804
+                Backed up by record_250322_dfe_EnhA_newinte.sh, whose naming
+                ("beforemodicache.inte") marks it as the pre-modification state.
+
+results_cdf/    $RD/has_qui.EnhA_qui2.chrs_1t22_neugamma/
+                dfe_EnhA_qui2.chrs_1t22_neugamma.csv, large_ll.txt   mtime 2025-03-29 11:01
+                Fit while the patch was active (2025-03-22 to 2025-04-02) -> CDF.
+                best fit: ll -469.88617263073866, shape 0.010065697465090334,
+                          scale 8163.323523768087, pneu 0.0
+
+## Derived here
+
+plot_integration_compare.py        builds the figure and the table
+EnhA_integration_compare.pdf/.png  Fig. 2A style, drawn with
+                                   manuscript/manuscript_science_260821/plots/dfe_bars.py
+                                   and plots/fig_style.py
+EnhA_integration_compare.csv       the plotted values and their difference
+integration_test_EnhA.docx         the write-up
+
+As in Fig. 2A, the last class combines 0.01 <= |s| < 0.5 with 0.5 <= |s| < inf.
+
+## Result
+
+Largest absolute difference in any |s| class: 7.41e-04 (neutral class, 0.9100 vs 0.9093).
+Delta log-likelihood: 0.0224, quad the higher.
+
+## Scope of the comparison
+
+One annotation (EnhA), one pdf (neugamma). No post-patch gamma fit with a summary
+exists for EnhA, so gamma could not be compared the same way; the patch was written
+for neugamma and extended to gamma three days later.
+
+Census of all 333 neugamma result directories under $RD, by the date of their newest
+*.InferDFE.bestfits: exactly one falls inside the 2025-03-22 to 2025-04-02 window in
+which the patch was active. Every other published neugamma result was produced with
+stock quad.
