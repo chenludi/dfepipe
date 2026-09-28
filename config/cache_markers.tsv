@@ -1,0 +1,4 @@
+marker	gamma_s_low	gamma_s_high	gamma_pts	grids	note
+1	1e-6	0.5	300	1500 1520 1540	the standard real-data cache
+meixi	NA	NA	901	3000 3020 3040	gamma bounds fixed at 0.00001 10000
+large	NA	NA	1001	5000 5020 5040	gamma bounds fixed at 1e-7 10000
