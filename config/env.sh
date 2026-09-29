@@ -46,6 +46,31 @@ load_modules() {
   _dfepipe_strict_restore
 }
 
+# The scheduler is not on PATH in a non-interactive shell (ssh host 'cmd', and
+# anything a hook or automation runs), so a launcher must call this before qsub.
+# SGE_ROOT and the arch subdirectory are site-specific; override them in a profile.
+SGE_ROOT_DIR="${SGE_ROOT_DIR:-${SGE_ROOT:-/u/systems/UGE8.6.4}}"
+SGE_ARCH="${SGE_ARCH:-lx-amd64}"
+# SGE_CELL matters: qsub refuses to start without its cell directory, so putting
+# the binary on PATH is not enough. settings.sh sets the whole environment.
+SGE_CELL_NAME="${SGE_CELL_NAME:-hoffman2}"
+ensure_scheduler() {
+  command -v qsub >/dev/null 2>&1 && [[ -n "${SGE_CELL:-}" ]] && return 0
+  local settings="${SGE_ROOT_DIR}/${SGE_CELL_NAME}/common/settings.sh"
+  if [[ -r "$settings" ]]; then
+    _dfepipe_strict_off
+    # shellcheck disable=SC1090
+    source "$settings"
+    _dfepipe_strict_restore
+  fi
+  if ! command -v qsub >/dev/null 2>&1; then
+    local d="${SGE_ROOT_DIR}/bin/${SGE_ARCH}"
+    [[ -x "${d}/qsub" ]] || { echo "qsub not found (tried ${settings} and ${d})" >&2; return 1; }
+    export SGE_ROOT="${SGE_ROOT_DIR}" SGE_CELL="${SGE_CELL_NAME}"
+    export PATH="${d}:${PATH}"
+  fi
+}
+
 activate_conda() {
   : "${CONDA_ENV:?CONDA_ENV not set: path to the conda env (see config/profiles/)}"
   dfepipe_init_modules      # `module` may not exist yet in a non-interactive shell

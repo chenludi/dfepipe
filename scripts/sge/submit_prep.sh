@@ -13,6 +13,9 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(dirname "$(dirname "$here")")}"
 # shellcheck source=../../config/pipeline.conf
 source "${REPO_DIR}/config/pipeline.conf"
+# qsub is not on PATH in a non-interactive shell; env.sh knows where it lives.
+source "${REPO_DIR}/config/env.sh"
+ensure_scheduler
 
 : "${OUT:?OUT not set}"
 : "${PREP_RUN:?PREP_RUN not set}"
@@ -51,6 +54,7 @@ qsub ${TERSE:+-terse} \
   -cwd -j y -V \
   -o "${log_dir}/prep.${PREP_RUN}.\$JOB_ID.log" \
   -l h_rt="${SGE_PREP_RT}",h_data="${SGE_PREP_MEM}" \
+  -pe shared "${SGE_PREP_PE}" \
   ${HOLD:+-hold_jid "${HOLD}"} \
   -v "${job_env}" \
   "${here}/worker_prep.sh" "${beds[@]}"
