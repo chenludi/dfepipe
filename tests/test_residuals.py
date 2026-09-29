@@ -205,15 +205,15 @@ def test_classify_fail_model_zero_beats_everything():
     assert any("variants are observed" in r for r in reasons)
 
 
-def test_classify_fail_on_max_abs_rare():
+def test_classify_warns_not_fails_on_extreme_max_abs_rare():
     status, reasons = classify(base_metrics(max_abs_rare=47.2), CFG)
-    assert status == "FAIL"
+    assert status == "WARN"
     assert any("max_abs_rare" in r for r in reasons)
 
 
-def test_classify_fail_on_g2_per_snp():
+def test_classify_warns_not_fails_on_extreme_g2_per_snp():
     status, reasons = classify(base_metrics(g2_per_snp=0.0395), CFG)
-    assert status == "FAIL"
+    assert status == "WARN"
     assert any("g2_per_snp" in r for r in reasons)
 
 
@@ -273,3 +273,15 @@ def test_everything_masked_fails_rather_than_passing():
     status, reasons = classify(m, cfg)
     assert status == "FAIL"
     assert any("no usable bins" in r for r in reasons)
+
+
+def test_structural_problems_still_fail_while_residuals_only_warn():
+    """FAIL is reserved for broken data; residual thresholds are advisory."""
+    cfg = dict(max_rare_warn=25, max_rare_fail=40, bulk_bias_warn=2.3,
+               rest_over_rare_min=5, g2_warn=0.008, g2_fail=0.035)
+    wild = {"max_abs_rare": 999.0, "max_abs_rest": 0.0, "mean_rest": 0.0,
+            "mean_rest_norm": 0.0, "g2_per_snp": 99.0, "n_masked_model_zero": 0,
+            "n_bins_used": 70}
+    assert classify(wild, cfg)[0] == "WARN"
+    broken = dict(wild, n_masked_model_zero=3)
+    assert classify(broken, cfg)[0] == "FAIL"

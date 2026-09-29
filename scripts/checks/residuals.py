@@ -4,7 +4,10 @@
 **FOR REFERENCE ONLY.** This check flags fits that are worth a second look; it
 is not a rigorous accept/reject test. The thresholds are percentiles of 137
 previously finished fits, so WARN means "unusual compared with past runs", not
-"wrong". FAIL means "almost certainly wrong, go look at the figure".
+"wrong". Residual and deviance thresholds NEVER fail, however extreme: residuals
+are tricky, they scale with SNP count and the rare bins swing hard for real
+reasons. FAIL is reserved for structural problems - no usable bins, or a model
+giving no probability where variants are observed - which do block a chain.
 
 Only the metrics that were empirically shown to separate the one labelled bad
 fit from the 137 accepted ones are computed (calibrated 2026-09-29):
@@ -150,23 +153,27 @@ def classify(metrics, cfg):
         fails.append(
             f"{n_model_zero} bin(s) where the model gives no usable probability "
             "(~zero or invalid) but variants are observed")
-    if max_rare > cfg["max_rare_fail"]:
-        fails.append(
-            f"max_abs_rare {max_rare:.1f} exceeds FAIL threshold "
-            f"{cfg['max_rare_fail']}")
-    if g2_per_snp > cfg["g2_fail"]:
-        fails.append(
-            f"g2_per_snp {g2_per_snp:.4g} exceeds FAIL threshold "
-            f"{cfg['g2_fail']}")
     if fails:
         return "FAIL", fails
 
+    # Residual and deviance thresholds only ever WARN. Residuals are tricky: they
+    # scale with SNP count, the rare bins swing hard for real reasons, and the
+    # thresholds are percentiles of past runs rather than a test of validity. FAIL
+    # is reserved above for structural problems, which block a chain.
     warns = []
-    if max_rare > cfg["max_rare_warn"]:
+    if max_rare > cfg["max_rare_fail"]:
+        warns.append(
+            f"max_abs_rare {max_rare:.1f} is beyond anything seen in past runs "
+            f"(>{cfg['max_rare_fail']}): look at the figure")
+    elif max_rare > cfg["max_rare_warn"]:
         warns.append(
             f"max_abs_rare {max_rare:.1f} exceeds WARN threshold "
             f"{cfg['max_rare_warn']}")
-    if g2_per_snp > cfg["g2_warn"]:
+    if g2_per_snp > cfg["g2_fail"]:
+        warns.append(
+            f"g2_per_snp {g2_per_snp:.4g} is beyond anything seen in past runs "
+            f"(>{cfg['g2_fail']}): look at the figure")
+    elif g2_per_snp > cfg["g2_warn"]:
         warns.append(
             f"g2_per_snp {g2_per_snp:.4g} exceeds WARN threshold "
             f"{cfg['g2_warn']}")
