@@ -1,0 +1,13 @@
+name: dfepipe
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.12
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - pytest
+  - pip
+  - pip:
+      - dadi==2.3.3
+      - dadi-cli==0.9.5
