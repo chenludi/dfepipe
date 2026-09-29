@@ -30,13 +30,14 @@ def run_gate(*args):
     return subprocess.run(["python3", GATE, *args], capture_output=True, text=True)
 
 
-def test_gate_warns_but_exits_zero(tmp_path):
+def test_gate_blocks_on_fail(tmp_path):
     f = tmp_path / "check_demo.tsv"
     write_check(f, [{"item": "EnhA", "status": "FAIL", "reason": "max|resid| 19"}])
     r = run_gate(str(f), "demo")
-    assert r.returncode == 0
-    assert "WARNING" in r.stderr and "EnhA" in r.stderr
+    assert r.returncode == 1
+    assert "ERROR" in r.stderr and "EnhA" in r.stderr
     assert "demo" in r.stderr
+    assert "FORCE=1" in r.stderr          # the message must say how to override
 
 
 def test_gate_reports_warn_rows(tmp_path):
@@ -55,7 +56,7 @@ def test_gate_reports_both_fail_and_warn(tmp_path):
                     {"item": "ELS", "status": "WARN", "reason": "few sites"},
                     {"item": "PLS", "status": "PASS"}])
     r = run_gate(str(f), "demo")
-    assert r.returncode == 0
+    assert r.returncode == 1
     assert "EnhA" in r.stderr
     assert "ELS" in r.stderr
     assert "PLS" not in r.stderr
@@ -101,7 +102,7 @@ def test_gate_survives_tab_and_newline_in_reason(tmp_path):
     # the library round-trips it correctly; only the naive parser does not
     assert read_status(f) == {"EnhA": "FAIL", "PLS": "PASS"}
     r = run_gate(str(f), "demo")
-    assert r.returncode == 0
+    assert r.returncode == 1
     assert "EnhA" in r.stderr
     assert "PLS_bin3" not in r.stderr
 
@@ -148,3 +149,26 @@ def test_gate_reports_unrecognised_status(tmp_path):
                        capture_output=True, text=True)
     assert r.returncode == 0
     assert "does not understand" in r.stderr and "EnhA" in r.stderr
+
+
+def test_gate_force_overrides_a_fail(tmp_path):
+    """FAIL blocks, but FORCE=1 lets a deliberate re-run through and says so."""
+    import os, subprocess
+    f = tmp_path / "c.tsv"
+    write_check(f, [{"item": "EnhA", "status": "FAIL", "reason": "only 812 SNPs"}])
+    env = dict(os.environ, FORCE="1")
+    r = subprocess.run(["python3", str(ROOT / "scripts/checks/gate.py"), str(f), "sfs"],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 0
+    assert "FORCE=1" in r.stderr
+
+
+def test_gate_does_not_block_on_warn_alone(tmp_path):
+    """Fit-quality warnings are advisory and must never stop a chain."""
+    import subprocess
+    f = tmp_path / "c.tsv"
+    write_check(f, [{"item": "EnhA", "status": "WARN", "reason": "max_abs_rare 27"}])
+    r = subprocess.run(["python3", str(ROOT / "scripts/checks/gate.py"), str(f), "dfe"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0
+    assert "WARNED" in r.stderr
