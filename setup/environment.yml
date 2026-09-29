@@ -1,3 +1,10 @@
+# The conda half of the environment. dadi and dadi-cli are NOT here: they are
+# vendored as sdists under setup/vendor/ and installed by setup.sh with
+# --no-index, so the version that produced the published results cannot drift
+# and that half of the install needs no network.
+#
+# compilers are required because dadi builds C/Cython extensions
+# (integration_c, PDFs_cython, the Triallele transitions) at install time.
 name: dfepipe
 channels: [conda-forge, bioconda]
 dependencies:
@@ -6,8 +13,7 @@ dependencies:
   - scipy
   - pandas
   - matplotlib
+  - cython
+  - c-compiler
   - pytest
   - pip
-  - pip:
-      - dadi==2.3.3
-      - dadi-cli==0.9.5

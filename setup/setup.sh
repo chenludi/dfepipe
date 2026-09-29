@@ -15,8 +15,30 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 prefix="${1:-${HOME}/condaenv/dfepipe}"
 
+# micromamba first: a single static binary, no base install, much faster - the
+# better bet on a cluster we do not control. conda is the fallback.
+if command -v micromamba >/dev/null 2>&1; then
+  CREATE=(micromamba create -y -p "$prefix" -f "${here}/environment.yml")
+elif command -v conda >/dev/null 2>&1; then
+  CREATE=(conda env create -p "$prefix" -f "${here}/environment.yml")
+else
+  echo "neither micromamba nor conda found on PATH" >&2; exit 1
+fi
+
 if [[ ! -d "$prefix" ]]; then
-  conda env create -p "$prefix" -f "${here}/environment.yml"
+  "${CREATE[@]}"
+fi
+
+# dadi and dadi-cli come from the vendored sdists, never from PyPI, so the exact
+# version that produced the published results is what gets built here. They are
+# sdists because dadi has C/Cython extensions that must be compiled.
+vendor="${here}/vendor"
+for pkg in "${vendor}"/dadi-*.tar.gz "${vendor}"/dadi_cli-*.tar.gz; do
+  [[ -e "$pkg" ]] || { echo "missing vendored sdist: $pkg" >&2; exit 1; }
+done
+if ! "$prefix/bin/python" -c "import dadi, dadi_cli" >/dev/null 2>&1; then
+  "$prefix/bin/pip" install --no-index --no-build-isolation \
+      "${vendor}"/dadi-*.tar.gz "${vendor}"/dadi_cli-*.tar.gz
 fi
 
 sp="$(ls -d "$prefix"/lib/python3.*/site-packages 2>/dev/null | head -1)"
@@ -65,6 +87,19 @@ else
   echo "skipping optional CDF cache integration (APPLY_CDF_INTEGRATION=1 to apply)"
 fi
 
-"$prefix/bin/dadi-cli" Pdf --names | grep -q neugamma \
-  || { echo "verification failed: dadi-cli does not list neugamma" >&2; exit 1; }
+# Goal tests: not "is dadi 2.3.3 installed" but "does this environment do what
+# the patch is for". These are also what to run against a future dadi to decide
+# whether the patch is still needed.
+"$prefix/bin/python" "$(dirname "$here")/scripts/checks/test_env.py" --prefix "$prefix"
+
+# Capture the exact build so it can be recreated rather than merely approximated.
+mkdir -p "${here}/lock"
+lockname="${LOCK_NAME:-$(hostname -s)}"
+if command -v conda >/dev/null 2>&1; then
+  conda list --explicit -p "$prefix" > "${here}/lock/${lockname}.txt" 2>/dev/null || true
+fi
+
 echo "env ready: $prefix"
+echo
+echo "Put this in your site profile (config/profiles/<cluster>.conf):"
+echo "  export CONDA_ENV=\"$prefix\""
