@@ -15,14 +15,17 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 prefix="${1:-${HOME}/condaenv/dfepipe}"
 
-# micromamba first: a single static binary, no base install, much faster - the
-# better bet on a cluster we do not control. conda is the fallback.
-if command -v micromamba >/dev/null 2>&1; then
-  CREATE=(micromamba create -y -p "$prefix" -f "${here}/environment.yml")
-elif command -v conda >/dev/null 2>&1; then
+# conda first: it is what both our clusters have and what built the environment
+# that produced the published results. micromamba is the fallback for a cluster
+# with no conda at all - it is a single static binary needing no base install.
+if command -v conda >/dev/null 2>&1; then
   CREATE=(conda env create -p "$prefix" -f "${here}/environment.yml")
+elif command -v micromamba >/dev/null 2>&1; then
+  CREATE=(micromamba create -y -p "$prefix" -f "${here}/environment.yml")
 else
-  echo "neither micromamba nor conda found on PATH" >&2; exit 1
+  echo "neither conda nor micromamba found on PATH" >&2
+  echo "  (on a cluster: try 'module load conda' first)" >&2
+  exit 1
 fi
 
 if [[ ! -d "$prefix" ]]; then
