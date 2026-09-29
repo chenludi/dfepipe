@@ -17,7 +17,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from checkfile import read_status  # noqa: E402
+from checkfile import STATUSES, read_status  # noqa: E402
 
 USAGE = ("usage: gate.py <check_file> <upstream_stage_name>\n"
          "       (a missing argument is a caller bug, not an upstream failure,\n"
@@ -41,7 +41,10 @@ def main(argv):
     status = read_status(path)
     failed = [i for i, s in status.items() if s == "FAIL"]
     warned = [i for i, s in status.items() if s == "WARN"]
-    if not failed and not warned:
+    # Anything outside the vocabulary is reported rather than ignored: an
+    # unreadable status must not be indistinguishable from "nothing wrong".
+    unknown = [i for i, s in status.items() if s not in STATUSES]
+    if not failed and not warned and not unknown:
         return 0
 
     if failed:
@@ -50,6 +53,9 @@ def main(argv):
     if warned:
         sys.stderr.write("WARNING: upstream stage '%s' WARNED for: %s\n"
                          % (stage, " ".join(warned)))
+    if unknown:
+        sys.stderr.write("WARNING: upstream stage '%s' wrote a status this gate does "
+                         "not understand for: %s\n" % (stage, " ".join(unknown)))
     sys.stderr.write("         see %s; proceeding anyway\n" % path)
     sys.stderr.write(REFERENCE_ONLY + "\n")
     return 0

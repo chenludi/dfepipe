@@ -104,3 +104,47 @@ def test_gate_survives_tab_and_newline_in_reason(tmp_path):
     assert r.returncode == 0
     assert "EnhA" in r.stderr
     assert "PLS_bin3" not in r.stderr
+
+
+# --- write-time validation: a bad row must fail here, not silently later -------
+
+def test_write_rejects_missing_status(tmp_path):
+    import pytest
+    with pytest.raises(ValueError, match="status"):
+        write_check(tmp_path / "c.tsv", [{"item": "EnhA"}])
+
+
+def test_write_rejects_unknown_status(tmp_path):
+    import pytest
+    with pytest.raises(ValueError, match="expected one of"):
+        write_check(tmp_path / "c.tsv", [{"item": "EnhA", "status": "ok"}])
+
+
+def test_write_rejects_duplicate_items(tmp_path):
+    import pytest
+    with pytest.raises(ValueError, match="unique"):
+        write_check(tmp_path / "c.tsv", [{"item": "EnhA", "status": "FAIL"},
+                                         {"item": "EnhA", "status": "PASS"}])
+
+
+def test_skip_is_a_valid_status(tmp_path):
+    f = tmp_path / "c.tsv"
+    write_check(f, [{"item": "EnhA:chr4", "status": "SKIP", "reason": "no intervals in bed"}])
+    assert read_status(f) == {"EnhA:chr4": "SKIP"}
+
+
+def test_duplicate_items_collapse_to_the_worst_status(tmp_path):
+    """A hand-edited file must not hide a FAIL behind a later PASS."""
+    f = tmp_path / "c.tsv"
+    f.write_text("item\tstatus\nEnhA\tFAIL\nEnhA\tPASS\n")
+    assert read_status(f) == {"EnhA": "FAIL"}
+
+
+def test_gate_reports_unrecognised_status(tmp_path):
+    import subprocess
+    f = tmp_path / "c.tsv"
+    f.write_text("item\tstatus\nEnhA\tNA\n")
+    r = subprocess.run(["python3", str(ROOT / "scripts/checks/gate.py"), str(f), "demo"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0
+    assert "does not understand" in r.stderr and "EnhA" in r.stderr
