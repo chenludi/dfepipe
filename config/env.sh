@@ -6,7 +6,9 @@
 BEDTOOLS_MOD="${BEDTOOLS_MOD:-bedtools}"
 R_MOD="${R_MOD:-R}"
 CONDA_MOD="${CONDA_MOD:-conda}"
-CONDA_ENV="${CONDA_ENV:?CONDA_ENV not set: path to the dfepipe conda env}"
+# Not asserted here: sourcing env.sh must not require conda, because stages
+# like prep need only bedtools. activate_conda does the assertion instead.
+CONDA_ENV="${CONDA_ENV:-}"
 
 # SITE-SPECIFIC: the one line below is the lmod init script's location on UCLA
 # Hoffman2. On another cluster, change MODULE_INIT (or export MODULESHOME so the
@@ -45,6 +47,7 @@ load_modules() {
 }
 
 activate_conda() {
+  : "${CONDA_ENV:?CONDA_ENV not set: path to the conda env (see config/profiles/)}"
   dfepipe_init_modules      # `module` may not exist yet in a non-interactive shell
   _dfepipe_strict_off
   module load "$CONDA_MOD"

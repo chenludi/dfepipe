@@ -1,0 +1,56 @@
+#!/bin/bash
+# submit_prep.sh <bed> [bed...]
+#
+# One SGE job for the whole list: prep is a handful of bedtools calls, so the
+# queue wait dominates and splitting per bed buys nothing.
+#
+#   TERSE=1   print only the job id, for chaining
+#   HOLD=<id> hold until that job finishes
+#   FORCE=1   forwarded to run_prep.sh, which then replaces an existing run
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="${REPO_DIR:-$(dirname "$(dirname "$here")")}"
+# shellcheck source=../../config/pipeline.conf
+source "${REPO_DIR}/config/pipeline.conf"
+
+: "${OUT:?OUT not set}"
+: "${PREP_RUN:?PREP_RUN not set}"
+: "${SGE_PREP_RT:?SGE_PREP_RT not set}"
+: "${SGE_PREP_MEM:?SGE_PREP_MEM not set}"
+
+if [[ $# -eq 0 ]]; then
+  echo "usage: submit_prep.sh <bed> [bed...]" >&2
+  exit 2
+fi
+
+# The job's working directory is not the submitting one for relative lookups we
+# can rely on, so bed arguments are resolved here, while the caller's $PWD still
+# means something.
+beds=()
+for bed in "$@"; do
+  case "$bed" in
+    /*) beds+=("$bed") ;;
+    *)  beds+=("${PWD}/${bed}") ;;
+  esac
+done
+
+# Logs live under $OUT, not in the package: the package is synced to the cluster
+# and must stay clean, and the logs belong with the results they describe.
+log_dir="${OUT}/prep/log"
+mkdir -p "$log_dir"
+
+# The config the launcher validated is forwarded explicitly, so the job cannot
+# silently pick up a different run key from the worker node's environment. -V
+# carries the rest of the exported environment (the site profile).
+job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},PREP_RUN=${PREP_RUN}"
+[[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
+
+qsub ${TERSE:+-terse} \
+  -N "dfe_prep_${PREP_RUN}" \
+  -cwd -j y -V \
+  -o "${log_dir}/prep.${PREP_RUN}.\$JOB_ID.log" \
+  -l h_rt="${SGE_PREP_RT}",h_data="${SGE_PREP_MEM}" \
+  ${HOLD:+-hold_jid "${HOLD}"} \
+  -v "${job_env}" \
+  "${here}/worker_prep.sh" "${beds[@]}"
