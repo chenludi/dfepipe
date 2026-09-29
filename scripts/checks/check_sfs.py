@@ -25,7 +25,7 @@ Per chromosome:
 Summary row:
     FAIL  any chromosome FAILed, or fewer than MIN_SNPS SNPs in total. Below
           MIN_SNPS the spectrum is too thin to fit anything, so this blocks.
-    WARN  the has_qui bp is under MIN_HASQUI_FRAC of what prep produced: test
+    FAIL  the has_qui bp is under MIN_HASQUI_FRAC of what prep produced: test
           sites are being lost for want of a candidate-neutral site inside
           [mid-CTRL_FLANK, mid+CTRL_FLANK]. That is a design question about the
           window and the candidate set, not a broken run, so it never blocks.
@@ -46,7 +46,7 @@ from checkfile import write_check  # noqa: E402
 from check_prep import OUTPUT_TEMPLATE as PREP_BED_TEMPLATE  # noqa: E402
 
 # The manuscript's runs kept at least 90% of test sites after control pairing.
-MIN_HASQUI_FRAC = 0.90
+MIN_HASQUI_FRAC = 0.90   # argparse default; pipeline.conf HASQUI_MIN_FRAC wins
 # Smallest published bin (PLS phastCons17 20-25) has 1,560 SNPs. Mirrors
 # MIN_SNPS in pipeline.conf; run_concat.sh passes the configured value through.
 MIN_SNPS = 500
@@ -103,12 +103,19 @@ def assess_summary(n_snps, hasqui_ratio, failed_chroms,
         reasons.append("only %.0f SNPs (minimum %d): too thin to fit"
                        % (n_snps, min_snps))
     if hasqui_ratio is not None and hasqui_ratio < min_hasqui_frac:
-        if status != "FAIL":
-            status = "WARN"
+        # FAIL, not WARN: if a large share of the test sequence has no nearby
+        # control it is dropped silently, and whatever survives is a biased
+        # subset. Two causes worth stopping for - regions too long for a
+        # midpoint-centred window to reach outside them, or too little
+        # candidate-neutral sequence nearby. FORCE=1 proceeds anyway.
+        status = "FAIL"
         reasons.append(
-            "only %.0f%% of the prep bp had a control within the window (below "
-            "%.0f%%); consider a larger CTRL_FLANK or a larger candidate-neutral set"
+            "only %.1f%% of the prep'd test sequence has a nearby control "
+            "(minimum %.1f%%): either the test regions are too long for a "
+            "+/-CTRL_FLANK window centred on their midpoint, or there is too "
+            "little candidate-neutral sequence near them"
             % (100 * hasqui_ratio, 100 * min_hasqui_frac))
+
     return status, reasons
 
 
