@@ -89,11 +89,8 @@ source "${REPO_DIR}/config/env.sh"
 : "${G2_PER_SNP_WARN:?G2_PER_SNP_WARN not set}"
 : "${G2_PER_SNP_FAIL:?G2_PER_SNP_FAIL not set}"
 
-# NOT in pipeline.conf; both are what the original hardcoded.
-#   * the cutoff rank, plot_converge_dfe_0430.py:70 (-likelyhood_cutoff_num 2)
-#   * how many top fits get a figure, plot_converge_dfe_0430.py:451 (n=10)
-DFE_CUTOFF_RANK="${DFE_CUTOFF_RANK:-2}"
-DFE_PLOT_TOP="${DFE_PLOT_TOP:-10}"
+: "${DFE_CUTOFF_RANK:?DFE_CUTOFF_RANK not set}"
+: "${DFE_PLOT_TOP:?DFE_PLOT_TOP not set}"
 
 if [[ $# -lt 2 ]]; then
   echo "usage: run_bestdfe.sh <pdf> <bed> [bed...]" >&2

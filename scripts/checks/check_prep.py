@@ -29,6 +29,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from checkfile import write_check  # noqa: E402
+from conf import conf  # noqa: E402
 
 # The filter chain, in the order run_prep.sh runs it. `minus_quiescent` is the
 # candidate-neutral set: those sites become the controls, so a test site may
@@ -109,7 +110,8 @@ def main(argv=None):
     ap.add_argument("--out", required=True,
                     help="the prep output root, i.e. $OUT/prep")
     ap.add_argument("--run", required=True, help="PREP_RUN, the run key")
-    ap.add_argument("--min-frac", type=float, default=0.05,
+    ap.add_argument("--min-frac", type=float,
+                    default=conf.get_float("PREP_MIN_RETAIN_FRAC", 0.05),
                     help="WARN below this fraction of input bp surviving (default 0.05)")
     ap.add_argument("beds", nargs="+", help="the input beds prep was run on")
     a = ap.parse_args(argv)

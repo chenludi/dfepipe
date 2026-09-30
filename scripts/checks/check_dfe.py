@@ -31,6 +31,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from checkfile import write_check  # noqa: E402
+from conf import conf  # noqa: E402
 from residuals import classify, residual_metrics  # noqa: E402
 
 # Top fits within this many log-likelihood units count as converged on one
@@ -51,12 +52,11 @@ OUTCOMES_NAME = "fit_outcomes.tsv"
 PACK_GLOB = "dadi-cli_dfe.*.sh"
 BESTFITS_SUFFIX = ".InferDFE.bestfits"
 OUTCOME_KINDS = ("converged", "no_likelihood", "timeout", "not_run")
-# pipeline.conf's DFE_MAX_NOTRUN_FRAC / DFE_MIN_CONVERGED_FRAC /
-# DFE_MIN_CONVERGED_N. Repeated here only as the CLI defaults; the caller passes
-# the configured values through --max-notrun-frac and friends.
-DFE_MAX_NOTRUN_FRAC = 0.20
-DFE_MIN_CONVERGED_FRAC = 0.20
-DFE_MIN_CONVERGED_N = 10
+# CLI defaults, read from pipeline.conf; the caller passes the configured
+# values through --max-notrun-frac and friends.
+DFE_MAX_NOTRUN_FRAC = conf.get_float("DFE_MAX_NOTRUN_FRAC", 0.20)
+DFE_MIN_CONVERGED_FRAC = conf.get_float("DFE_MIN_CONVERGED_FRAC", 0.20)
+DFE_MIN_CONVERGED_N = conf.get_int("DFE_MIN_CONVERGED_N", 10)
 # run_fitneu.sh keeps the historical log name; its `ll: ` line is the null.
 NEU_LOG_GLOB = "*.dadi_cal_ll_neu_0723.log"
 
@@ -452,14 +452,22 @@ def main(argv=None):
                     help="the neutral run directory name, for the null ll")
     ap.add_argument("--sfs-out", required=True, help="the sfs output root, $OUT/sfs")
     ap.add_argument("--fs-run", required=True, help="FS_RUN")
-    ap.add_argument("--rare-max-count", type=int, default=4)
-    ap.add_argument("--max-rare-warn", type=float, default=25.0)
-    ap.add_argument("--max-rare-fail", type=float, default=40.0)
-    ap.add_argument("--bulk-bias-warn", type=float, default=2.3)
-    ap.add_argument("--rest-over-rare-min", type=float, default=5.0)
-    ap.add_argument("--g2-warn", type=float, default=0.008)
-    ap.add_argument("--g2-fail", type=float, default=0.035)
-    ap.add_argument("--num-convergence", type=int, default=5,
+    ap.add_argument("--rare-max-count", type=int,
+                    default=conf.get_int("RESID_RARE_MAX_COUNT", 4))
+    ap.add_argument("--max-rare-warn", type=float,
+                    default=conf.get_float("RESID_MAX_RARE_WARN", 25.0))
+    ap.add_argument("--max-rare-fail", type=float,
+                    default=conf.get_float("RESID_MAX_RARE_FAIL", 40.0))
+    ap.add_argument("--bulk-bias-warn", type=float,
+                    default=conf.get_float("RESID_BULK_BIAS_WARN", 2.3))
+    ap.add_argument("--rest-over-rare-min", type=float,
+                    default=conf.get_float("RESID_REST_OVER_RARE_MIN", 5.0))
+    ap.add_argument("--g2-warn", type=float,
+                    default=conf.get_float("G2_PER_SNP_WARN", 0.008))
+    ap.add_argument("--g2-fail", type=float,
+                    default=conf.get_float("G2_PER_SNP_FAIL", 0.035))
+    ap.add_argument("--num-convergence", type=int,
+                    default=conf.get_int("NUM_CONVERGENCE", 5),
                     help="how many starting points are wanted to converge")
     ap.add_argument("--max-notrun-frac", type=float,
                     default=DFE_MAX_NOTRUN_FRAC,

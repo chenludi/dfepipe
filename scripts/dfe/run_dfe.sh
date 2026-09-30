@@ -70,15 +70,16 @@ source "${REPO_DIR}/config/env.sh"
 : "${PACKNUMBER:?PACKNUMBER not set}"
 : "${SGE_DFE_PE:?SGE_DFE_PE not set: the core count InferDFE is given}"
 
-# NOT in pipeline.conf. Both are overridable from the environment and default to
-# what ran; they belong in pipeline.conf alongside the other pdfs' bounds.
-#   * neugammazero's bounds. piperef_stddfe_7_fitgamneug.sh:71-78 gave it a
-#     shape upper bound of 3, not the 2 neugamma gets; the rest is identical.
-#   * DFE_TIMEOUT, the per-command wall clock from submit_dadi-cli_dfebash.sh:66.
-NEUGAMMAZERO_LOWER="${NEUGAMMAZERO_LOWER:-1e-10 1e-10 0}"
-NEUGAMMAZERO_UPPER="${NEUGAMMAZERO_UPPER:-3 1e8 1}"
-NEUGAMMAZERO_BINS="${NEUGAMMAZERO_BINS:-10}"
-DFE_TIMEOUT="${DFE_TIMEOUT:-60m}"
+: "${GAMMA_LOWER:?GAMMA_LOWER not set}"
+: "${GAMMA_UPPER:?GAMMA_UPPER not set}"
+: "${GAMMA_BINS:?GAMMA_BINS not set}"
+: "${NEUGAMMA_LOWER:?NEUGAMMA_LOWER not set}"
+: "${NEUGAMMA_UPPER:?NEUGAMMA_UPPER not set}"
+: "${NEUGAMMA_BINS:?NEUGAMMA_BINS not set}"
+: "${NEUGAMMAZERO_LOWER:?NEUGAMMAZERO_LOWER not set}"
+: "${NEUGAMMAZERO_UPPER:?NEUGAMMAZERO_UPPER not set}"
+: "${NEUGAMMAZERO_BINS:?NEUGAMMAZERO_BINS not set}"
+: "${DFE_TIMEOUT:?DFE_TIMEOUT not set}"
 
 if [[ $# -lt 2 ]]; then
   echo "usage: run_dfe.sh <pdf> <bed> [bed...]" >&2
@@ -141,9 +142,9 @@ for bed in "$@"; do
   na="$(awk -F: '/^Na:/ {print $2}' "$best")"
   [[ -n "$na" ]] || { echo "run_dfe: no Na: line in ${best}" >&2; exit 1; }
 
-  # DFE_CACHE_FILE overrides the cache path for one bed only; it exists so an
-  # existing cache built outside the pipeline can be reused (the validation run
-  # does exactly that). NOT in pipeline.conf; see the report.
+  # DFE_CACHE_FILE (pipeline.conf, empty by default) overrides the cache path
+  # for one bed only, so a cache built outside the pipeline can be reused; the
+  # validation run does exactly that.
   cache="${DFE_CACHE_FILE:-${OUT}/cache/${base}/${DEMO_RUN}-${CACHE_MARKER}-${CACHE_RUN}/cache_${CACHE_MARKER}.spectra.bpkl}"
   [[ -s "$cache" ]] || {
     echo "run_dfe: no cache for '${base}': ${cache}" >&2

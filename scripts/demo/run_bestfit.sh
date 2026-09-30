@@ -64,9 +64,8 @@ source "${REPO_DIR}/config/env.sh"
 : "${G2_PER_SNP_WARN:?G2_PER_SNP_WARN not set}"
 : "${G2_PER_SNP_FAIL:?G2_PER_SNP_FAIL not set}"
 
-# NOT in pipeline.conf: the likelihood cutoff piperef_stddfe_4_plotdemo.sh:43
-# hardcoded as 500. Positive here, as there; it is negated internally.
-DEMO_LL_CUTOFF="${DEMO_LL_CUTOFF:-500}"
+# Positive here, as in piperef_stddfe_4_plotdemo.sh:43; negated internally.
+: "${DEMO_LL_CUTOFF:?DEMO_LL_CUTOFF not set}"
 
 if [[ $# -eq 0 ]]; then
   echo "usage: run_bestfit.sh <bed> [bed...]" >&2

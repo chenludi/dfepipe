@@ -58,11 +58,8 @@ LEGACY_SCRIPT_DIR="${LEGACY_SCRIPT_DIR:-${REFS_DIR}/script}"
 CONCAT_FS_R="${LEGACY_SCRIPT_DIR}/concatefs.R"
 CONCAT_MUT_R="${LEGACY_SCRIPT_DIR}/concate_mut.R"
 
-# Minimum plausible size of a per-chromosome file, in bytes
-# (piperef_stddfe_2_concatefs.sh:47,55). Below these the file exists but holds
-# no counts, which would silently drag the genome-wide spectrum down.
-MIN_FS_BYTES="${MIN_FS_BYTES:-661}"
-MIN_FSMUT_BYTES="${MIN_FSMUT_BYTES:-500}"
+: "${MIN_FS_BYTES:?MIN_FS_BYTES not set}"
+: "${MIN_FSMUT_BYTES:?MIN_FSMUT_BYTES not set}"
 
 if [[ $# -eq 0 ]]; then
   echo "usage: run_concat.sh <bed> [bed...]" >&2

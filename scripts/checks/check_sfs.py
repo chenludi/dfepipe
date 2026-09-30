@@ -41,15 +41,15 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from checkfile import write_check  # noqa: E402
+from conf import conf  # noqa: E402
 # One definition of how prep names its output, shared rather than restated: if
 # prep's naming ever changes, this check must not keep looking for the old name.
 from check_prep import OUTPUT_TEMPLATE as PREP_BED_TEMPLATE  # noqa: E402
 
 # The manuscript's runs kept at least 90% of test sites after control pairing.
-MIN_HASQUI_FRAC = 0.90   # argparse default; pipeline.conf HASQUI_MIN_FRAC wins
+MIN_HASQUI_FRAC = conf.get_float("HASQUI_MIN_FRAC", 0.90)
 # Smallest published bin (PLS phastCons17 20-25) has 1,560 SNPs. Mirrors
-# MIN_SNPS in pipeline.conf; run_concat.sh passes the configured value through.
-MIN_SNPS = 500
+MIN_SNPS = conf.get_int("MIN_SNPS", 500)
 
 # Rows run_sfs_chrom.sh writes into bychr/lengths.<chrom>.tsv.
 LENGTH_STAGES = ["prep_chr", "merged_chr", "has_qui", "quiecent_ctrl"]

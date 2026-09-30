@@ -31,6 +31,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from checkfile import write_check  # noqa: E402
+from conf import conf  # noqa: E402
 from residuals import classify, residual_metrics  # noqa: E402
 
 # Top fits within this many log-likelihood units count as converged. One ll unit
@@ -256,14 +257,22 @@ def main(argv=None):
                     help="the run directory name, <FS_RUN>-<DEMO_MODEL>-<DEMO_RUN>")
     ap.add_argument("--sfs-out", required=True, help="the sfs output root, $OUT/sfs")
     ap.add_argument("--fs-run", required=True, help="FS_RUN")
-    ap.add_argument("--rare-max-count", type=int, default=4)
-    ap.add_argument("--max-rare-warn", type=float, default=25.0)
-    ap.add_argument("--max-rare-fail", type=float, default=40.0)
-    ap.add_argument("--bulk-bias-warn", type=float, default=2.3)
-    ap.add_argument("--rest-over-rare-min", type=float, default=5.0)
-    ap.add_argument("--g2-warn", type=float, default=0.008)
-    ap.add_argument("--g2-fail", type=float, default=0.035)
-    ap.add_argument("--num-convergence", type=int, default=5,
+    ap.add_argument("--rare-max-count", type=int,
+                    default=conf.get_int("RESID_RARE_MAX_COUNT", 4))
+    ap.add_argument("--max-rare-warn", type=float,
+                    default=conf.get_float("RESID_MAX_RARE_WARN", 25.0))
+    ap.add_argument("--max-rare-fail", type=float,
+                    default=conf.get_float("RESID_MAX_RARE_FAIL", 40.0))
+    ap.add_argument("--bulk-bias-warn", type=float,
+                    default=conf.get_float("RESID_BULK_BIAS_WARN", 2.3))
+    ap.add_argument("--rest-over-rare-min", type=float,
+                    default=conf.get_float("RESID_REST_OVER_RARE_MIN", 5.0))
+    ap.add_argument("--g2-warn", type=float,
+                    default=conf.get_float("G2_PER_SNP_WARN", 0.008))
+    ap.add_argument("--g2-fail", type=float,
+                    default=conf.get_float("G2_PER_SNP_FAIL", 0.035))
+    ap.add_argument("--num-convergence", type=int,
+                    default=conf.get_int("NUM_CONVERGENCE", 5),
                     help="how many top fits the convergence spread covers")
     ap.add_argument("beds", nargs="+", help="the input beds the stage was run on")
     a = ap.parse_args(argv)

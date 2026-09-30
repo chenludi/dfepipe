@@ -72,19 +72,18 @@ source "${REPO_DIR}/config/env.sh"
 : "${VCF_TMPL:?VCF_TMPL not set: the per-chromosome VCF, with {chrom} in it}"
 : "${MUTRATE_TAB:?MUTRATE_TAB not set: the per-site mutation-rate directory}"
 : "${BEDTOOLS_MOD:?BEDTOOLS_MOD not set}"
-# NOT in pipeline.conf yet: dadi needs a population panel and a population name
-# to build a spectrum from a VCF. get_fs_mut_bychr.sh:26 and dadi_sfs_YRI.py:29
-# hardcoded popfile_2504_YRI108.txt and "YRI". Both are data choices, so they are
-# asserted rather than defaulted, and belong in config/profiles/<site>.conf.
+# get_fs_mut_bychr.sh:26 and dadi_sfs_YRI.py:29 hardcoded popfile_2504_YRI108.txt
+# and "YRI". Both are data choices, so pipeline.conf leaves them empty and the
+# site profile sets them.
 : "${POPFILE:?POPFILE not set: the dadi population panel, e.g. popfile_2504_YRI108.txt (add it to config/profiles/)}"
 : "${POP:?POP not set: which population in POPFILE to build the SFS for, e.g. YRI (add it to config/profiles/)}"
 
-# The mutation-rate file name pattern, from get_fs_mut_bychr.sh:70. {chrnum} is
-# the chromosome WITHOUT the chr prefix, which is how those files are named.
-# Override MUTRATE_TMPL for a differently named set.
-# The pattern is held in its own variable first: a literal '}' inside a
-# ${VAR:-default} would close the expansion early and silently truncate it.
-_mutrate_pattern='MR.{chrnum}_rate_v5.2_TFBS_correction_all.bed'
+# MUTRATE_PATTERN (pipeline.conf, from get_fs_mut_bychr.sh:70) names the files
+# in MUTRATE_TAB; {chrnum} is the chromosome WITHOUT the chr prefix. Held in a
+# variable first: a literal '}' inside a ${VAR:-default} would close the
+# expansion early and silently truncate it.
+: "${MUTRATE_PATTERN:?MUTRATE_PATTERN not set}"
+_mutrate_pattern="$MUTRATE_PATTERN"
 MUTRATE_TMPL="${MUTRATE_TMPL:-${MUTRATE_TAB}/${_mutrate_pattern}}"
 
 if [[ $# -lt 2 ]]; then

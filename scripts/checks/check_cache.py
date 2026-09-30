@@ -46,6 +46,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from checkfile import write_check  # noqa: E402
+from conf import conf  # noqa: E402
 
 # The covered upper bound may fall no more than this fraction short of
 # 2*GAMMA_S_HIGH*Na before it is worth remarking on. A factor of ten: the gammas
@@ -256,16 +257,19 @@ def main(argv=None):
     ap.add_argument("--out", required=True, help="the cache output root, $OUT/cache")
     ap.add_argument("--run", required=True,
                     help="the run directory name, <DEMO_RUN>-<CACHE_MARKER>-<CACHE_RUN>")
-    ap.add_argument("--marker", default="1",
+    ap.add_argument("--marker", default=conf.get("CACHE_MARKER", "1"),
                     help="CACHE_MARKER, the <marker> in cache_<marker>.spectra.bpkl")
-    ap.add_argument("--min-size-frac", type=float, default=0.5,
+    ap.add_argument("--min-size-frac", type=float,
+                    default=conf.get_float("CACHE_MIN_SIZE_FRAC", 0.5),
                     help="CACHE_MIN_SIZE_FRAC; fail below this fraction of the "
                          "expected gamma_pts x (projection+1) x 8 bytes")
     ap.add_argument("--gamma-pts", type=int, required=True, help="GAMMA_PTS")
     ap.add_argument("--projection", type=int, required=True, help="PROJECTION")
-    ap.add_argument("--min-usable", type=float, default=0.9,
+    ap.add_argument("--min-usable", type=float,
+                    default=conf.get_float("CACHE_MIN_USABLE_FRAC", 0.9),
                     help="CACHE_MIN_USABLE_FRAC")
-    ap.add_argument("--gamma-s-high", type=float, default=0.5,
+    ap.add_argument("--gamma-s-high", type=float,
+                    default=conf.get_float("GAMMA_S_HIGH", 0.5),
                     help="GAMMA_S_HIGH; the cache should reach 2*GAMMA_S_HIGH*Na")
     ap.add_argument("beds", nargs="+", help="the input beds the stage was run on")
     a = ap.parse_args(argv)

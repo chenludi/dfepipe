@@ -55,13 +55,11 @@ source "${REPO_DIR}/config/env.sh"
 : "${NUM_CONVERGENCE:?NUM_CONVERGENCE not set}"
 : "${SGE_DEMO_PE:?SGE_DEMO_PE not set: the core count InferDM is given}"
 
-# NOT in pipeline.conf: the two knobs dadi-cli_demog_fsfile.sh:97 and
-# submit_dadi-cli_demog_fsfile.sh:60 hardcoded. pipeline.conf's OPTCOUNT is the
-# DFE stage's (100); demography used 40, and `timeout 30m` bounded each fit.
-# Both belong in pipeline.conf as DEMO_OPTCOUNT / DEMO_TIMEOUT; until they are
-# there, they are overridable from the environment and default to what ran.
-DEMO_OPTCOUNT="${DEMO_OPTCOUNT:-40}"
-DEMO_TIMEOUT="${DEMO_TIMEOUT:-30m}"
+# Demography's own optcount and per-fit clock: 40 and 30m, from
+# dadi-cli_demog_fsfile.sh:97 and submit_dadi-cli_demog_fsfile.sh:60.
+# OPTCOUNT (100) is the DFE stage's, not this one's.
+: "${DEMO_OPTCOUNT:?DEMO_OPTCOUNT not set}"
+: "${DEMO_TIMEOUT:?DEMO_TIMEOUT not set}"
 
 if [[ $# -lt 2 ]]; then
   echo "usage: run_demo.sh <p0file> <bed> [bed...]" >&2
