@@ -39,6 +39,24 @@ Still true that `PACKNUMBER=50` x `timeout 60m` = 50 h exceeds `h_rt=23:50:00`
 or cut PACKNUMBER?** Separately: **should the p0 grid still spend ~22% of its
 starting points on shapes that cannot produce a likelihood?**
 
+**C. dELS and pELS rest on 3 and 4 converged fits.** Measured 2026-09-30 over
+60 published gamma runs. Nearly every starting point for those two produced no
+output at all - the packs exist, so the jobs were submitted, but almost nothing
+ran.
+
+| run | converged | produced any output | starting points |
+|---|---|---|---|
+| ELS | 132 | 144 | 190 |
+| phastCons17way 0-5 | 144 | 186 | 190 |
+| CDS | 135 | 143 | 190 |
+| PLS | 96 | 138 | 190 |
+| **dELS** | **3** | **3** | 158 |
+| **pELS** | **4** | **4** | 180 |
+| Exc/Inh.PeakCalls | 3 | 3 | ~150-180 |
+
+Not wrong - a converged fit is a converged fit - but far less explored than the
+rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
+
 ## Decisions needed
 
 0. **Cache runtime.** Our run took **20 min**, not the 10:10:00 your script
