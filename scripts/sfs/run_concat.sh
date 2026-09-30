@@ -154,6 +154,8 @@ for bed in "$@"; do
         echo "        no usable fsmut for:  ${missing_tab[*]}" >&2
       fi
       echo "        check_sfs below says, per chromosome, whether that is expected." >&2
+      echo "        To analyse a subset deliberately, set CHROMS to it; the" >&2
+      echo "        spectrum is then labelled with the chromosomes it holds." >&2
       failed=1
       continue
     fi

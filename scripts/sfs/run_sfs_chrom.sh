@@ -79,7 +79,7 @@ source "${REPO_DIR}/config/env.sh"
 : "${POP:?POP not set: which population in POPFILE to build the SFS for, e.g. YRI (add it to config/profiles/)}"
 
 # MUTRATE_PATTERN (pipeline.conf, from get_fs_mut_bychr.sh:70) names the files
-# in MUTRATE_TAB; {chrnum} is the chromosome WITHOUT the chr prefix. Held in a
+# in MUTRATE_TAB; {chrnum} is the chromosome without the chr prefix. Held in a
 # variable first: a literal '}' inside a ${VAR:-default} would close the
 # expansion early and silently truncate it.
 : "${MUTRATE_PATTERN:?MUTRATE_PATTERN not set}"

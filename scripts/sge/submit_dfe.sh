@@ -18,7 +18,7 @@
 #             points - what to use after an h_rt kill
 #             whose .InferDFE.bestfits already exist
 #
-# The best-fit pick is NOT submitted here: it can only run once every pack has
+# The best-fit pick is not submitted here: it can only run once every pack has
 # finished. Run it after this job, holding on its id:
 #
 #   jid=$(TERSE=1 bash scripts/sge/submit_dfe.sh gamma mybed.bed)

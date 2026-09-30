@@ -44,8 +44,10 @@
 #   * the malformed makefile_p0_dfeinput.tab (nine header columns, eight data
 #     fields) is replaced by spec.txt, which every stage in this package writes.
 #   * every starting point's outcome is appended to fit_outcomes.tsv
-#     (marker / outcome / seconds / note) as its fit finishes. check_dfe.py
-#     reads it; the fourth outcome, not_run, is derived there.
+#     (marker / outcome / seconds / note) as its fit finishes: `fitted` if it
+#     wrote a .bestfits, else `timeout` or `no_likelihood`. check_dfe.py reads
+#     it, derives the fourth outcome `not_run`, and counts how many of the
+#     fitted ones actually carry a converged block.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -338,7 +340,7 @@ fi
 # ------------------------------------------------------- the outcome log ----
 # fit_outcomes.tsv records what became of every starting point this job
 # attempts, appended as the fit finishes, so a task killed by h_rt still leaves
-# a record of what it got through. It is APPEND-ONLY and never rewritten: a
+# a record of what it got through. It is append-only and never rewritten: a
 # RESUME re-run adds rows, and check_dfe.py takes the LAST row for a marker.
 # Concurrent array tasks share the file, so the append is serialised with flock
 # where flock exists (one write of one short line otherwise).
@@ -387,7 +389,7 @@ for i in "${!beds[@]}"; do
       if [[ -n "$prefix" ]]; then marker="$(basename "$prefix")"; fi
       if [[ -n "$prefix" && -s "${prefix}.InferDFE.bestfits" && "${FORCE:-0}" != "1" ]]; then
         n_skipped=$((n_skipped + 1))
-        log_outcome "$outlog" "$marker" converged 0 "already present, not re-run"
+        log_outcome "$outlog" "$marker" fitted 0 "already present, not re-run"
         continue
       fi
 
@@ -410,7 +412,7 @@ for i in "${!beds[@]}"; do
       # a likelihood. `rc` in the note keeps a real crash distinguishable.
       if [[ -n "$marker" ]]; then
         if [[ -s "${prefix}.InferDFE.bestfits" ]]; then
-          log_outcome "$outlog" "$marker" converged "$((SECONDS - t0))" "rc=${rc}"
+          log_outcome "$outlog" "$marker" fitted "$((SECONDS - t0))" "rc=${rc}"
         elif [[ "$rc" -eq 124 ]]; then
           log_outcome "$outlog" "$marker" timeout "$((SECONDS - t0))" \
                       "killed after ${DFE_TIMEOUT}"

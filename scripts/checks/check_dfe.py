@@ -27,6 +27,7 @@ import argparse
 import csv
 import glob
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -51,7 +52,13 @@ TEST_FS_GLOB = "has_qui.*.chrs_1t22.fs"
 OUTCOMES_NAME = "fit_outcomes.tsv"
 PACK_GLOB = "dadi-cli_dfe.*.sh"
 BESTFITS_SUFFIX = ".InferDFE.bestfits"
-OUTCOME_KINDS = ("converged", "no_likelihood", "timeout", "not_run")
+# What became of one starting point. `fitted` means it wrote a .bestfits;
+# whether that file carries a "# Converged results" block is a separate,
+# stricter question, counted as n_converged_block. Roughly a third of the
+# published .bestfits files are fitted but not converged.
+OUTCOME_KINDS = ("fitted", "no_likelihood", "timeout", "not_run")
+# Runs made before the rename wrote "converged" for what is now "fitted".
+OUTCOME_ALIASES = {"converged": "fitted"}
 # CLI defaults, read from pipeline.conf; the caller passes the configured
 # values through --max-notrun-frac and friends.
 DFE_MAX_NOTRUN_FRAC = conf.get_float("DFE_MAX_NOTRUN_FRAC", 0.20)
@@ -80,9 +87,10 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
     `n_fits` and `n_converged_block` are skipped when None, which is how the
     `neu` row - a single closed-form likelihood, not an optimisation - is
     assessed. `n_converged_block` counts the .bestfits files that carry a
-    "# Converged results" block, which is stricter than count_outcomes()'s
-    `n_converged` (a non-empty .bestfits): about half the files have no such
-    block.
+    "# Converged results" block. It is stricter than count_outcomes()'s
+    `n_fitted` (any non-empty .bestfits) - about a third of the published files
+    are fitted but never converged - and it is the number the convergence
+    warning uses.
 
     `outcomes` is a count_outcomes() mapping, or None where there are no
     starting points to account for. no_likelihood and timeout are reported by
@@ -95,12 +103,19 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
             "no fits produced: no *.InferDFE.bestfits in the run directory. "
             "Either run_dfe.sh has not run, or every command in every pack "
             "failed - check the SGE logs and the pack files")
-    if outcomes and outcomes["n_starting_points"] and not outcomes["n_converged"]:
+    if outcomes and outcomes["n_starting_points"] and not outcomes["n_fitted"]:
         fails.append(
-            "not one of the %d starting points converged: there is no best fit "
-            "to take. %d produced no likelihood, %d timed out, %d never ran"
+            "not one of the %d starting points produced a fit: there is no best "
+            "fit to take. %d produced no likelihood, %d timed out, %d never ran"
             % (outcomes["n_starting_points"], outcomes["n_no_likelihood"],
                outcomes["n_timeout"], outcomes["n_not_run"]))
+    if (outcomes and outcomes["n_rc_logged"]
+            and outcomes["n_rc_nonzero"] == outcomes["n_rc_logged"]):
+        fails.append(
+            "every one of the %d logged fits exited non-zero: that is a "
+            "systematic failure, not a hard likelihood surface. Check the cache "
+            "path, --demo-popt and the environment before re-running"
+            % outcomes["n_rc_logged"])
     if ll_dfe is None:
         fails.append(
             "%s is missing or holds no fit: the summary stage and the "
@@ -141,12 +156,16 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
                  "under-explored. RESUME=1 finishes them"
                  % (outcomes["n_not_run"], n, 100 * outcomes["frac_not_run"],
                     100 * max_notrun_frac))
-        if (outcomes["n_converged"] < min_converged_n
-                or outcomes["frac_converged"] < min_converged_frac):
-            warn("only %d of %d starting points converged (%.0f%%; want at "
-                 "least %d and %.0f%%): the method looks unstable on this bed"
-                 % (outcomes["n_converged"], n, 100 * outcomes["frac_converged"],
-                    min_converged_n, 100 * min_converged_frac))
+        # Keyed on the converged count, not the looser fitted one: a fit with no
+        # converged block says nothing about whether the optimiser settled.
+        if n_converged_block is not None:
+            frac = n_converged_block / n
+            if n_converged_block < min_converged_n or frac < min_converged_frac:
+                warn("only %d of %d starting points converged (%.0f%%; want at "
+                     "least %d and %.0f%%): poor starting points, an unexplored "
+                     "grid or a hard surface - the optimum may be local"
+                     % (n_converged_block, n, 100 * frac, min_converged_n,
+                        100 * min_converged_frac))
     if ll_neu is not None and ll_dfe <= float(ll_neu):
         warn("the DFE log-likelihood %.1f is no better than the neutral null "
              "%.1f: selection buys this model nothing"
@@ -206,10 +225,10 @@ def read_neu_ll(directory):
 
 
 def read_fit_outcomes(path):
-    """marker -> outcome from run_dfe.sh's fit_outcomes.tsv, or {} if absent.
+    """marker -> {outcome, note} from run_dfe.sh's fit_outcomes.tsv, or {}.
 
-    The log is APPEND-ONLY: a RESUME re-run adds rows rather than rewriting
-    them, so a marker can appear more than once and the LAST row wins. Header
+    The log is append-only: a RESUME re-run adds rows rather than rewriting
+    them, so a marker can appear more than once and the last row wins. Header
     lines, blank lines and unrecognised outcomes are skipped, which is what
     makes a header repeated by a second array task harmless.
     """
@@ -221,10 +240,12 @@ def read_fit_outcomes(path):
                 if len(parts) < 2:
                     continue
                 marker, outcome = parts[0].strip(), parts[1].strip()
+                outcome = OUTCOME_ALIASES.get(outcome, outcome)
                 if not marker or marker == "marker":
                     continue
                 if outcome in OUTCOME_KINDS:
-                    out[marker] = outcome
+                    note = parts[3].strip() if len(parts) > 3 else ""
+                    out[marker] = {"outcome": outcome, "note": note}
     except OSError:
         return {}
     return out
@@ -253,36 +274,57 @@ def read_pack_markers(dfe_dir):
     return list(dict.fromkeys(markers))
 
 
+_RC_RE = re.compile(r"\brc=(-?\d+)")
+
+
+def _rc_from_note(note):
+    """The exit code run_dfe.sh wrote into the note column, or None."""
+    m = _RC_RE.search(note or "")
+    return int(m.group(1)) if m else None
+
+
 def count_outcomes(dfe_dir):
     """The four per-starting-point outcome counts for one run directory.
 
-    A non-empty .bestfits is `converged` whatever the log says - the file
-    system is the authority, and it is also the only evidence a run made before
-    this log existed leaves behind. Otherwise the log's last row for that
-    marker decides. A marker in the packs with neither is `not_run`: the array
-    task never reached it.
+    A non-empty .bestfits is `fitted` whatever the log says - the file system
+    is the authority, and it is also the only evidence a run made before this
+    log existed leaves behind. Otherwise the log's last row for that marker
+    decides. A marker in the packs with neither is `not_run`: the array task
+    never reached it.
+
+    Also counts exit codes out of the log's note column: n_rc_logged fits
+    recorded one, n_rc_nonzero of them a failure. Every fit failing with a
+    non-zero code is a systematic problem (wrong cache path, bad --demo-popt),
+    not a hard likelihood surface, so assess_dfe FAILs on it.
     """
     dfe_dir = str(dfe_dir)
     markers = read_pack_markers(dfe_dir)
     logged = read_fit_outcomes(os.path.join(dfe_dir, OUTCOMES_NAME))
-    converged = set()
+    fitted = set()
     for path in glob.glob(os.path.join(dfe_dir, "*" + BESTFITS_SUFFIX)):
         try:
             if os.path.getsize(path) > 0:
-                converged.add(os.path.basename(path)[:-len(BESTFITS_SUFFIX)])
+                fitted.add(os.path.basename(path)[:-len(BESTFITS_SUFFIX)])
         except OSError:
             continue
     if not markers:
-        markers = sorted(set(logged) | converged)
+        markers = sorted(set(logged) | fitted)
 
     counts = dict.fromkeys(("n_" + k for k in OUTCOME_KINDS), 0)
+    counts["n_rc_logged"] = counts["n_rc_nonzero"] = 0
     for marker in markers:
-        if marker in converged:
-            counts["n_converged"] += 1
-        elif logged.get(marker) in ("no_likelihood", "timeout"):
-            counts["n_" + logged[marker]] += 1
-        elif marker in logged:
-            # Logged converged, but the .bestfits is gone: it produced nothing
+        entry = logged.get(marker)
+        rc = _rc_from_note(entry["note"]) if entry else None
+        if rc is not None:
+            counts["n_rc_logged"] += 1
+            if rc != 0:
+                counts["n_rc_nonzero"] += 1
+        if marker in fitted:
+            counts["n_fitted"] += 1
+        elif entry and entry["outcome"] in ("no_likelihood", "timeout"):
+            counts["n_" + entry["outcome"]] += 1
+        elif entry:
+            # Logged as fitted, but the .bestfits is gone: it produced nothing
             # readable now, which is what no_likelihood means to every reader.
             counts["n_no_likelihood"] += 1
         else:

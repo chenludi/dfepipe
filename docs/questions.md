@@ -73,9 +73,25 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
    chromosome's own prep bp, so one bad chromosome is visible.
 4. ~~DFE run directory naming~~ **RESOLVED: marker added**, now
    `<CACHE_RUN>-<CACHE_MARKER>-<pdf>-<DFE_RUN>`.
-5. Seven config keys the stages needed and `config/` lacks:
-   `NEUGAMMAZERO_{LOWER,UPPER,BINS}` (shape upper is 3, not 2),
-   `DFE_TIMEOUT=60m`, `DFE_CUTOFF_RANK=2`, `DFE_PLOT_TOP=10`, `DFE_CACHE_FILE`.
+5. ~~Seven config keys the stages needed and `config/` lacks.~~ **Resolved
+   2026-09-30:** every tunable is now in `config/pipeline.conf` and the stages
+   assert rather than default. `neugammazero` sits in its own section 6, "not
+   used by this pipeline". `scripts/checks/conf.py` reads the config so a
+   check's argparse default is the configured value rather than a second copy.
+
+### Outcome vocabulary and verdicts — resolved 2026-09-30
+
+- `fitted` (wrote a `.bestfits`) and `converged` (that file carries a converged
+  block) are now separate. The convergence warning uses `converged`, which is
+  the stricter number; keying it on `fitted` was about 1.6x too generous.
+- `DFE_MIN_CONVERGED_N = 10` **stays**. Few converged fits is worth flagging
+  whatever the fraction says: it usually means poor starting points, a hard
+  surface, or a grid the optimiser never explored.
+- Every fit exiting non-zero is now a FAIL, not a WARN. That pattern is
+  systematic — wrong cache path, bad `--demo-popt`, broken environment — not a
+  hard likelihood surface.
+- `run_concat.sh` refuses when any chromosome has no usable `.fs`/`.tab` rather
+  than quietly leaving it out; `CHROMS` is the deliberate way to run a subset.
 
 ## Errors in the original scripts (not changed, not ported)
 

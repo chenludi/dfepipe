@@ -37,7 +37,7 @@
 # Differences from the original, all deliberate:
 #   * `neugammazero` is handled. The original hit a bare `exit 1`
 #     (piperef_stddfe_8_plotdfe.sh:105-107), and so did any other pdf.
-#   * the mutation-load calculation (plot_mutload_single.py, :112-119) is NOT
+#   * the mutation-load calculation (plot_mutload_single.py, :112-119) is not
 #     ported. It is out of scope and the original's own header flags it as
 #     wrong; u and L still reach the summary through the fsmut tables.
 #   * nothing is copied to a dated ~/mv_<date> directory or to plots_dfe_mutload.

@@ -10,7 +10,7 @@
 #   HOLD=<id> hold until that job finishes (e.g. the sfs concatenation)
 #   FORCE=1   forwarded to run_demo.sh, which then redoes fits that already exist
 #
-# The best-fit pick is NOT submitted here: it can only run once every task has
+# The best-fit pick is not submitted here: it can only run once every task has
 # finished. Submit it after this job, holding on its id:
 #
 #   jid=$(TERSE=1 bash scripts/sge/submit_demo.sh mybed.bed)

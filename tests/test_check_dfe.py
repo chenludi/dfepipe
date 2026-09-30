@@ -202,30 +202,43 @@ def write_log(d, rows, header=True):
     (d / "fit_outcomes.tsv").write_text(text)
 
 
+def _kinds(d):
+    return {k: v["outcome"] for k, v in d.items()}
+
+
 def test_read_fit_outcomes_skips_the_header(tmp_path):
-    write_log(tmp_path, [("0", "converged", "12", "rc=0"),
+    write_log(tmp_path, [("0", "fitted", "12", "rc=0"),
                          ("1", "timeout", "3600", "killed after 60m")])
-    assert read_fit_outcomes(tmp_path / "fit_outcomes.tsv") == {
-        "0": "converged", "1": "timeout"}
+    got = read_fit_outcomes(tmp_path / "fit_outcomes.tsv")
+    assert _kinds(got) == {"0": "fitted", "1": "timeout"}
+    assert got["0"]["note"] == "rc=0"
+
+
+def test_read_fit_outcomes_accepts_the_old_word_converged(tmp_path):
+    """Runs made before the rename wrote `converged` for what is now `fitted`."""
+    write_log(tmp_path, [("0", "converged", "12", "rc=0")])
+    assert _kinds(read_fit_outcomes(tmp_path / "fit_outcomes.tsv")) == {
+        "0": "fitted"}
 
 
 def test_read_fit_outcomes_takes_the_last_row_per_marker(tmp_path):
     """RESUME appends; the reader resolves a repeated marker to its last row."""
     write_log(tmp_path, [("7", "timeout", "3600", "killed after 60m"),
-                         ("7", "converged", "44", "rc=0")])
-    assert read_fit_outcomes(tmp_path / "fit_outcomes.tsv")["7"] == "converged"
+                         ("7", "fitted", "44", "rc=0")])
+    got = read_fit_outcomes(tmp_path / "fit_outcomes.tsv")
+    assert got["7"]["outcome"] == "fitted"
 
 
 def test_read_fit_outcomes_ignores_junk_and_repeated_headers(tmp_path):
     (tmp_path / "fit_outcomes.tsv").write_text(
         "marker\toutcome\tseconds\tnote\n"
-        "0\tconverged\t1\trc=0\n"
+        "0\tfitted\t1\trc=0\n"
         "\n"
         "marker\toutcome\tseconds\tnote\n"
         "1\tnonsense\t1\t\n"
         "2\tno_likelihood\t9\trc=0, no .bestfits\n")
-    assert read_fit_outcomes(tmp_path / "fit_outcomes.tsv") == {
-        "0": "converged", "2": "no_likelihood"}
+    assert _kinds(read_fit_outcomes(tmp_path / "fit_outcomes.tsv")) == {
+        "0": "fitted", "2": "no_likelihood"}
 
 
 def test_read_fit_outcomes_absent_file_is_empty(tmp_path):
@@ -250,41 +263,41 @@ def test_count_outcomes_classifies_all_four(tmp_path):
     write_pack(tmp_path, "dadi-cli_dfe.0.sh", ["0", "1", "2", "3", "4"])
     bestfits(tmp_path, "0")
     bestfits(tmp_path, "1")
-    write_log(tmp_path, [("0", "converged", "12", "rc=0"),
-                         ("1", "converged", "13", "rc=0"),
+    write_log(tmp_path, [("0", "fitted", "12", "rc=0"),
+                         ("1", "fitted", "13", "rc=0"),
                          ("2", "no_likelihood", "40", "rc=0, no .bestfits"),
                          ("3", "timeout", "3600", "killed after 60m")])
     c = count_outcomes(tmp_path)
     assert c["n_starting_points"] == 5
-    assert (c["n_converged"], c["n_no_likelihood"], c["n_timeout"],
+    assert (c["n_fitted"], c["n_no_likelihood"], c["n_timeout"],
             c["n_not_run"]) == (2, 1, 1, 1)
-    assert c["frac_converged"] == pytest.approx(0.4)
+    assert c["frac_fitted"] == pytest.approx(0.4)
     assert c["frac_not_run"] == pytest.approx(0.2)
 
 
-def test_count_outcomes_an_empty_bestfits_is_not_converged(tmp_path):
+def test_count_outcomes_an_empty_bestfits_is_not_fitted(tmp_path):
     """dadi-cli can leave a zero-byte file behind; run_dfe.sh tests -s too."""
     write_pack(tmp_path, "dadi-cli_dfe.0.sh", ["0"])
     (tmp_path / "0.InferDFE.bestfits").write_text("")
     write_log(tmp_path, [("0", "no_likelihood", "40", "rc=0, no .bestfits")])
     c = count_outcomes(tmp_path)
-    assert (c["n_converged"], c["n_no_likelihood"]) == (0, 1)
+    assert (c["n_fitted"], c["n_no_likelihood"]) == (0, 1)
 
 
 def test_count_outcomes_bestfits_beats_the_log(tmp_path):
-    """A .bestfits present now is converged, whatever an older row claimed."""
+    """A .bestfits present now is a fit, whatever an older row claimed."""
     write_pack(tmp_path, "dadi-cli_dfe.0.sh", ["0"])
     bestfits(tmp_path, "0")
     write_log(tmp_path, [("0", "timeout", "3600", "killed after 60m")])
-    assert count_outcomes(tmp_path)["n_converged"] == 1
+    assert count_outcomes(tmp_path)["n_fitted"] == 1
 
 
-def test_count_outcomes_without_a_log_is_converged_or_not_run(tmp_path):
+def test_count_outcomes_without_a_log_is_fitted_or_not_run(tmp_path):
     """A run from before the log existed still classifies, just more coarsely."""
     write_pack(tmp_path, "dadi-cli_dfe.0.sh", ["0", "1", "2"])
     bestfits(tmp_path, "0")
     c = count_outcomes(tmp_path)
-    assert (c["n_converged"], c["n_not_run"]) == (1, 2)
+    assert (c["n_fitted"], c["n_not_run"]) == (1, 2)
 
 
 def test_count_outcomes_without_packs_falls_back_to_log_and_bestfits(tmp_path):
@@ -292,78 +305,124 @@ def test_count_outcomes_without_packs_falls_back_to_log_and_bestfits(tmp_path):
     bestfits(tmp_path, "1")
     c = count_outcomes(tmp_path)
     assert c["n_starting_points"] == 2
-    assert (c["n_converged"], c["n_timeout"], c["n_not_run"]) == (1, 1, 0)
+    assert (c["n_fitted"], c["n_timeout"], c["n_not_run"]) == (1, 1, 0)
 
 
 def test_count_outcomes_on_an_empty_directory(tmp_path):
     c = count_outcomes(tmp_path)
     assert c["n_starting_points"] == 0
-    assert c["frac_converged"] == 0.0
+    assert c["frac_fitted"] == 0.0
 
 
 # --------------------------------------------------------- outcome verdicts --
 
-def outcomes(n=100, converged=65, no_likelihood=30, timeout=5, not_run=0):
-    c = {"n_starting_points": n, "n_converged": converged,
+def outcomes(n=100, fitted=65, no_likelihood=30, timeout=5, not_run=0,
+             rc_logged=0, rc_nonzero=0):
+    c = {"n_starting_points": n, "n_fitted": fitted,
          "n_no_likelihood": no_likelihood, "n_timeout": timeout,
-         "n_not_run": not_run}
-    for key in ("converged", "no_likelihood", "timeout", "not_run"):
+         "n_not_run": not_run, "n_rc_logged": rc_logged,
+         "n_rc_nonzero": rc_nonzero}
+    for key in ("fitted", "no_likelihood", "timeout", "not_run"):
         c["frac_" + key] = c["n_" + key] / n if n else 0.0
     return c
 
 
+# phastCons17way 0-5: 144 of 190 fitted, 89 of those converged. A healthy run
+# converges on roughly half its starting points, so these fixtures pass a
+# realistic n_converged_block rather than the helper's minimum of 5.
 def test_typical_outcome_mix_passes():
-    status, reasons = assess(outcomes=outcomes())
+    status, reasons = assess(outcomes=outcomes(), n_converged_block=45)
     assert status == "PASS" and reasons == []
 
 
 def test_too_many_never_ran_warns():
     """4 of 190 is fine; 46 of 190 is a job that ran out of time."""
-    status, reasons = assess(outcomes=outcomes(190, 100, 44, 0, 46))
+    status, reasons = assess(outcomes=outcomes(190, 100, 44, 0, 46),
+                             n_converged_block=60)
     assert status == "WARN"
     assert any("never ran" in r for r in reasons)
 
 
 def test_a_few_never_ran_does_not_warn():
-    status, reasons = assess(outcomes=outcomes(190, 120, 66, 0, 4))
+    status, reasons = assess(outcomes=outcomes(190, 120, 66, 0, 4),
+                             n_converged_block=70)
     assert status == "PASS" and reasons == []
 
 
 def test_too_few_converged_by_fraction_warns():
     """dELS: 3 of 158 converged."""
-    status, reasons = assess(outcomes=outcomes(158, 3, 155, 0, 0))
+    status, reasons = assess(outcomes=outcomes(158, 3, 155, 0, 0),
+                             n_converged_block=3)
     assert status == "WARN"
     assert any("converged" in r for r in reasons)
 
 
 def test_too_few_converged_by_count_warns():
-    """Above the fraction but below the floor: 9 of 20."""
-    status, reasons = assess(outcomes=outcomes(20, 9, 11, 0, 0))
+    """Above the fraction but below the floor: 9 of 20.
+
+    The floor stays: a handful of converged fits is worth a second look
+    whatever the fraction says, because it usually means poor starting points
+    or a grid the optimiser never explored.
+    """
+    status, reasons = assess(outcomes=outcomes(20, 9, 11, 0, 0),
+                             n_converged_block=9)
     assert status == "WARN"
     assert any("converged" in r for r in reasons)
 
 
-def test_no_converged_fits_fails():
+def test_convergence_is_judged_on_converged_not_merely_fitted():
+    """190 fits, but only 4 carry a converged block: that must still warn.
+
+    Keying on n_fitted would call this run healthy. About a third of the
+    published .bestfits files are fitted without ever converging.
+    """
+    status, reasons = assess(outcomes=outcomes(190, 190, 0, 0, 0),
+                             n_converged_block=4)
+    assert status == "WARN"
+    assert any("4 of 190 starting points converged" in r for r in reasons)
+
+
+def test_no_fits_at_all_fails():
     status, reasons = assess(outcomes=outcomes(190, 0, 190, 0, 0), n_fits=0,
                              top=[])
     assert status == "FAIL"
-    assert any("converged" in r for r in reasons)
+    assert any("not one of the 190" in r for r in reasons)
+
+
+def test_every_fit_exiting_non_zero_fails():
+    """A systematic failure - wrong cache path, bad --demo-popt - not a hard
+    surface. It would otherwise read as 100% no_likelihood and only warn."""
+    status, reasons = assess(
+        outcomes=outcomes(190, 0, 190, 0, 0, rc_logged=190, rc_nonzero=190),
+        n_fits=0, top=[])
+    assert status == "FAIL"
+    assert any("exited non-zero" in r for r in reasons)
+
+
+def test_some_fits_exiting_non_zero_does_not_fail():
+    """Individual crashes happen; only all of them means something systematic."""
+    status, reasons = assess(
+        outcomes=outcomes(190, 100, 90, 0, 0, rc_logged=190, rc_nonzero=90),
+        n_converged_block=60)
+    assert status == "PASS" and reasons == []
 
 
 def test_no_likelihood_is_reported_never_judged():
     """A bad starting point that fails fast is part of the design."""
-    status, reasons = assess(outcomes=outcomes(190, 100, 90, 0, 0))
+    status, reasons = assess(outcomes=outcomes(190, 100, 90, 0, 0),
+                             n_converged_block=60)
     assert status == "PASS" and reasons == []
 
 
 def test_timeout_is_reported_never_judged():
-    status, reasons = assess(outcomes=outcomes(190, 100, 0, 90, 0))
+    status, reasons = assess(outcomes=outcomes(190, 100, 0, 90, 0),
+                             n_converged_block=60)
     assert status == "PASS" and reasons == []
 
 
 def test_outcome_thresholds_are_arguments():
     status, _ = assess(outcomes=outcomes(190, 100, 44, 0, 46),
-                       max_notrun_frac=0.5)
+                       n_converged_block=60, max_notrun_frac=0.5)
     assert status == "PASS"
 
 

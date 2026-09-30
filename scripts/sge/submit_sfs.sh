@@ -9,7 +9,7 @@
 #   HOLD=<id> hold until that job finishes (e.g. the prep job)
 #   FORCE=1   forwarded to run_sfs_chrom.sh, which then redoes finished chromosomes
 #
-# Concatenation is NOT submitted here: it can only run once every task has
+# Concatenation is not submitted here: it can only run once every task has
 # finished. Submit it after this job, holding on its id:
 #
 #   jid=$(TERSE=1 bash scripts/sge/submit_sfs.sh mybed.bed)

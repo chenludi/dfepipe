@@ -1,5 +1,5 @@
 #!/bin/bash
-# Software environment. EDIT TOOL VERSIONS HERE ONLY.
+# Software environment. Tool versions are set here and nowhere else.
 #
 # Sourced by every stage script after config/pipeline.conf. Exposes
 # dfepipe_init_modules, load_modules <mod>... and activate_conda.

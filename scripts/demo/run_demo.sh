@@ -29,7 +29,7 @@
 #     `--output` and `--cpu`, which worked only as argparse abbreviations.
 #   * a fit whose .bestfits already exists is skipped, so an array task that was
 #     killed or timed out can simply be re-run; FORCE=1 redoes them.
-#   * dadi-cli_demog_fsfile.sh:32 computes its output prefix BEFORE reading
+#   * dadi-cli_demog_fsfile.sh:32 computes its output prefix before reading
 #     $model_demog and $p0marker, so every file it writes is named ".<fs>."  -
 #     a hidden file with no marker in it. The published results predate that
 #     edit and carry the full name, which is what is reproduced here.
@@ -156,7 +156,7 @@ for i in "${!beds[@]}"; do
     p0=("${f[@]:1:nparam}")
     lb=("${f[@]:1+nparam:nparam}")
     ub=("${f[@]:1+2*nparam:nparam}")
-    # -1 means "this parameter is NOT fixed", one per parameter.
+    # -1 means "this parameter is not fixed", one per parameter.
     consts=(); for ((k = 0; k < nparam; k++)); do consts+=("-1"); done
 
     prefix="${d}/${dadi_model}.${fsbase}.${marker}"
