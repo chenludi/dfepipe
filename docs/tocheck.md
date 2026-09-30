@@ -73,3 +73,27 @@ longer on the default path.
 `MERGE_BEFORE_WINDOW`), `scripts/sfs/run_sfs_chrom.sh` (the windowing), and the
 original `../windctrl_splitchr.sh:41-42,68-76`. The published ELS SFS predates
 the merge, which is why it matches the unmerged numbers.
+
+
+## 2. How much did the worst-converged-row bug move the published results?
+
+`plot_converge_dfe_0430.py:282-321` keyed its dict by filename and updated it
+once per converged row, so each row overwrote the previous and the **last**
+survived - the worst converged fit in that file, not the best. The convergence
+tracking itself (`covfile`) was fine; the overwrite was incidental. Confirmed on
+`178.InferDFE.bestfits` (phastCons17way 0-5): rows -610.1733440069229 /
+-610.1733440099965 / -610.1733440139265, and the published value is the third.
+
+**The pipeline now takes the best row (2026-09-30).** That is the only
+deliberate numerical difference between the old and new pipelines.
+
+- [ ] Quantify across every published fit: for each `*.InferDFE.bestfits`, the
+      difference between the first and last converged row in ll, shape and
+      scale, and how often a file has more than one converged row at all.
+- [ ] Whether any bed's *winning file* changes when the best row is used - that
+      is the only way the discretised DFE could move visibly.
+- [ ] Re-derive the affected Data S2 rows if anything moves beyond the bootstrap
+      spread (neutral bin 0.016, other bins ~0.008).
+
+Expected to be tiny: for phastCons17way 0-5 the first-to-last gap is 7e-9 in ll
+and the 6th decimal of shape.

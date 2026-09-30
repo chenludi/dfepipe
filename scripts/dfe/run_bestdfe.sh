@@ -11,7 +11,7 @@
 # plot_DFE_single.py. The rules, unchanged:
 #
 #   1. every *.InferDFE.bestfits in the run directory contributes ONE row: the
-#      LAST data row of its "# Converged results" block. A file with no such
+#      BEST data row of its "# Converged results" block. A file with no such
 #      block contributes nothing.   (plot_converge_dfe_0430.py:282-321)
 #   2. per row, scale_div2Na = scale/(2*Na), sdadi = shape*scale_div2Na and
 #      Ne = theta/(2*u_test*L_test*2)                                 (:324-333)
@@ -27,8 +27,9 @@
 #      (plot_DFE_single.py:74-126). pneu is 0 when the pdf has no such column.
 #
 # Note on rule 1: the original's parser overwrites its per-file entry on every
-# converged row and does not break, so the row that survives is the LAST of the
-# converged block - the WORST of the converged fits in that file, not the best.
+# converged row and does not break, so the row that survived was the LAST of the
+# converged block - the WORST converged fit in that file. We take the best;
+# see docs/tocheck.md for what that changes against the published values.
 # That is what produced every published number (the reference gamma fit's file
 # holds -610.1733440069229 first and the published -610.1733440139265 last), so
 # it is ported exactly. It is in the report.
@@ -241,8 +242,11 @@ if mutation_test_diploid <= 0:
 scale_scaleparam = 1.0 / (2 * Na)
 
 # --------------------------------------------------------- collect the fits --
-# One row per .bestfits file: the LAST data row of its converged block. See the
-# note in run_bestdfe.sh's header - this is the original's behaviour, on purpose.
+# One row per .bestfits file: the BEST (highest ll) row of its converged block.
+# The original kept the LAST row instead - its dict was keyed by filename and
+# updated once per row inside the convergence-tracking loop, so each row
+# overwrote the previous. That was incidental, not intended (2026-09-30), and
+# the difference from the published values is recorded in docs/tocheck.md.
 files = sorted(glob.glob(os.path.join(dfe_dir, "*.InferDFE.bestfits")))
 data_dict = {}
 names = None
@@ -276,7 +280,11 @@ for path in files:
                 % (os.path.basename(path), len(values),
                    len(names) if names else "no"))
             break
-        data_dict[os.path.basename(path)] = dict(zip(names, values))
+        row = dict(zip(names, values))
+        key = os.path.basename(path)
+        prev = data_dict.get(key)
+        if prev is None or row[names[0]] > prev[names[0]]:
+            data_dict[key] = row
 
 if not data_dict:
     die("none of the %d .InferDFE.bestfits file(s) in %s holds a converged "

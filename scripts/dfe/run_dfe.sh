@@ -39,8 +39,8 @@
 #     hardcoded at piperef_stddfe_7_fitgamneug.sh:63-86.
 #   * `--cpus` is spelled in full; the original wrote `--cpu`, which worked only
 #     as an argparse abbreviation. Same choice as run_demo.sh.
-#   * a fit whose .InferDFE.bestfits already exists is skipped, so a task that
-#     was killed or timed out can simply be re-run; FORCE=1 redoes them.
+#   * a fit whose .InferDFE.bestfits already exists is skipped, so RESUME=1
+#     finishes a timed-out run without repeating it; FORCE=1 redoes every fit.
 #   * the malformed makefile_p0_dfeinput.tab (nine header columns, eight data
 #     fields) is replaced by spec.txt, which every stage in this package writes.
 set -euo pipefail
@@ -160,11 +160,16 @@ if [[ -z "$pack_mode" ]]; then
     if [[ -d "$d" && -n "$(ls -A "$d" 2>/dev/null)" ]]; then
       if [[ "${FORCE:-0}" == "1" ]]; then
         echo "run_dfe: FORCE=1 - overwriting the existing run in ${d}" >&2
+      elif [[ "${RESUME:-0}" == "1" ]]; then
+        # A timed-out array leaves a part-filled run; resuming keeps the fits
+        # that finished and runs only the missing starting points.
+        echo "run_dfe: RESUME=1 - keeping the fits already in ${d}" >&2
       else
         echo "run_dfe: run directory exists and is not empty: ${d}" >&2
         echo "      Results are keyed by DFE_RUN, so an existing run is never" >&2
-        echo "      overwritten implicitly. Pick a new DFE_RUN, or re-run with" >&2
-        echo "      FORCE=1 to replace this one." >&2
+        echo "      overwritten implicitly. RESUME=1 keeps what finished and" >&2
+        echo "      runs only the missing starting points (use this after an" >&2
+        echo "      h_rt kill); FORCE=1 redoes every fit; or pick a new DFE_RUN." >&2
         exit 1
       fi
     fi

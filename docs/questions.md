@@ -13,7 +13,9 @@ survives. dadi-cli writes that block best-first. Verified on
 -610.1733440069229 / -610.1733440099965 / **-610.1733440139265**, and the
 published value is the third. Cost here is 7e-9 in ll and the 6th decimal of
 shape, but it is systematic across every published fit and unbounded for a
-poorly converged file. Ported as-is. **Keep it, or take the first row?**
+poorly converged file. **RESOLVED 2026-09-30: take the best row.** This is now
+the only deliberate numerical difference between the old and new pipelines;
+the impact on published values is a todo in docs/tocheck.md.
 Two other scripts in the same pipeline already take the FIRST row
 (`dadi_cal_ll_neu_0723.py:112-127`, `make_p0_dfe_0430.py:206-221`).
 

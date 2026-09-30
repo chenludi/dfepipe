@@ -14,6 +14,8 @@
 #   TERSE=1   print only the job id, for chaining
 #   HOLD=<id> hold until that job finishes (e.g. the cache job)
 #   FORCE=1   forwarded: replaces an existing run directory, and redoes fits
+#   RESUME=1  forwarded: keeps finished fits, runs only the missing starting
+#             points - what to use after an h_rt kill
 #             whose .InferDFE.bestfits already exist
 #
 # The best-fit pick is NOT submitted here: it can only run once every pack has
@@ -76,6 +78,7 @@ job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},FS_RUN=${FS_RUN},DEMO_RUN=${DEMO_RUN}"
 job_env="${job_env},DEMO_MODEL=${DEMO_MODEL},CACHE_RUN=${CACHE_RUN}"
 job_env="${job_env},DFE_RUN=${DFE_RUN},DFE_PDF=${pdf}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
+[[ -n "${RESUME:-}" ]] && job_env="${job_env},RESUME=${RESUME}"
 [[ -n "${DFE_CACHE_FILE:-}" ]] && job_env="${job_env},DFE_CACHE_FILE=${DFE_CACHE_FILE}"
 [[ -n "${DFE_TIMEOUT:-}" ]] && job_env="${job_env},DFE_TIMEOUT=${DFE_TIMEOUT}"
 
