@@ -71,14 +71,24 @@ of per-interval windows can only get smaller); test set 205,209,325 vs
       this 26 bp — it would bias `has_qui` against long annotations.
 - [ ] Check the same for a long-region annotation, not just ELS. Tx or a
       merged-promoter set would show the effect more strongly if it is real.
+- [ ] With the default now unmerged, check the same question for raw intervals:
+      how many single input intervals exceed 50 kb, so that their own window
+      falls entirely inside them and they can never find a control? For ELS the
+      intervals are a few hundred bp, but Tx or a long-segment annotation could
+      hit this.
 - [ ] Decide whether the window should scale with the region — e.g.
       `[start − FLANK, end + FLANK]` rather than `mid ± FLANK`. That is a
       different definition of "nearby", so it is a science decision, not a
       cleanup: it changes which controls pair with which test sites for every
       annotation. Do not change it without deciding deliberately.
 
-**Do not act on this yet.** The pipeline keeps the current behaviour
-(`MERGE_BEFORE_WINDOW=1`, windows on merged regions) until this is understood.
+**Decision, 2026-09-29: the default is now `MERGE_BEFORE_WINDOW=0`**, one window
+per input interval. The intervals of an annotation are meaningful units - one
+cCRE, one ChromHMM segment - and the pipeline should not silently redefine them;
+anyone who wants merged regions can merge their input bed first. It also matches
+the majority of published results, since merging only entered the original
+scripts on 2024/11/04. The question below is still worth answering, but it is no
+longer on the default path.
 
 **Where the evidence is.** `config/pipeline.conf` (`CTRL_FLANK`,
 `MERGE_BEFORE_WINDOW`), `scripts/sfs/run_sfs_chrom.sh` (the windowing), and the
