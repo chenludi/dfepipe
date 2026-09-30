@@ -15,42 +15,21 @@ directions:
 Genome-wide this is −26 bp in 202.7 Mb (1.3 × 10⁻⁷), so it changes no
 conclusion. The question is mechanistic, not numerical.
 
-**Hypothesis (CD).** The 50 kb window is too small for a large interval. The
-window is `[mid − 25000, mid + 25000]` centred on the midpoint, and its width
-does not grow with the region. So for a merged region longer than 50 kb the
-window lies entirely *inside* the region. Controls are candidate-neutral sites
-*minus* the test sites, so there can be no control inside the region, and the
-region is dropped from `has_qui` — whereas its unmerged sub-intervals each had
-their own window reaching out into flanking sequence and could find one.
+**Mechanism (traced 2026-09-29).** Merging *relocates* the window, it does not
+enlarge it. Two bookended ELS intervals on chr12 (120230636-120230966 and
+120230966-120231118) merge to midpoint 120230877 instead of 120231042, moving
+the window 165 bp left onto a quiescent site it previously missed - so the
+152 bp interval was gained, and nothing was lost on chr12. A separate mechanism
+applies above 2 x CTRL_FLANK = 50 kb: the window falls entirely inside the
+region, where controls cannot be (controls are candidate-neutral minus test),
+so such regions can never find one. That is the one worth counting.
 
-That predicts merging should mostly *lose* sequence. chr16 fits. chr12 gains,
-so there is a second mechanism: a merged region's window is centred on the
-merged midpoint and can reach sequence that no sub-interval's window reached,
-picking up a control that none of them found. Both effects are real; which
-dominates depends on the local interval structure.
+Magnitudes (ELS): control 602,593,295 merged vs 602,593,816 unmerged (merging
+can only shrink the control set); test 205,209,325 vs 205,209,348.
 
-**Partly answered, 2026-09-29.** The chr12 gain is not the "region keeps its
-sub-intervals as a unit" effect. Two bookended ELS intervals,
-
-    chr12  120230636  120230966   330 bp
-    chr12  120230966  120231118   152 bp   <- the interval that was gained
-
-merge into [120230636, 120231118] with midpoint 120230877, where the 152 bp
-interval's own midpoint is 120231042. The window does not grow, it **moves
-165 bp left**: [120206042, 120256042] unmerged vs [120205877, 120255877]
-merged. A quiescent site sits in the sliver that move gains, so the interval
-finds a control and is kept. Nothing was lost on chr12 at all (1 interval
-gained, 0 lost).
-
-So the general rule is that merging **relocates** the window centre, and a
-relocated window can gain or lose controls either way. The "long region swallows
-its own window" effect is a separate mechanism that only bites above
-2 x CTRL_FLANK = 50 kb, and is still the thing worth counting.
-
-Measured magnitudes for ELS: control set 602,593,295 merged vs 602,593,816
-unmerged (-521 bp, and merging can only shrink the control set, since the union
-of per-interval windows can only get smaller); test set 205,209,325 vs
-205,209,348 (-23 bp net, from +152 on chr12 and -175 on chr16).
+**Default is now `MERGE_BEFORE_WINDOW=0`** (one window per input interval), so
+this is off the default path - but the >50 kb question still applies to raw
+intervals.
 
 **Steps**
 
