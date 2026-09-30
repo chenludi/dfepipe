@@ -460,10 +460,13 @@ def test_severity_groups_unconverged_fits_with_no_bestfit():
     assert c == {"ok": 89, "fail_optimize": 61 + 40, "rerun": 0, "broken": 0}
 
 
-def test_severity_puts_timeout_and_not_run_together():
-    """Both are finished by RESUME=1, so they share a severity."""
+def test_severity_only_not_run_is_worth_rerunning():
+    """A timeout is a bad starting point, not a slow one, so it is not a rerun:
+    a second attempt spends another DFE_TIMEOUT to reach the same place."""
     c = severity_counts(outcomes(100, 50, 0, 20, 30), n_converged=50)
-    assert c["rerun"] == 50 and c["ok"] == 50
+    assert c["rerun"] == 30            # not_run only
+    assert c["fail_optimize"] == 20    # the timeouts
+    assert c["ok"] == 50
 
 
 def test_severity_error_is_its_own_class():
@@ -486,3 +489,12 @@ def test_severity_names_match_the_shell_helper():
     body = text.split("severity_of() {", 1)[1].split("\n}", 1)[0]
     for name in SEVERITIES:
         assert name in body, name
+
+
+def test_resume_does_not_retry_a_previous_timeout():
+    """run_dfe.sh must read fit_outcomes.tsv and skip markers logged timeout."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    text = (root / "scripts" / "dfe" / "run_dfe.sh").read_text()
+    assert "timed_out_before" in text
+    assert 'timed_out_before["$_m"]=1' in text

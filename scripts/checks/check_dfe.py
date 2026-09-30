@@ -79,10 +79,14 @@ OUTCOME_KINDS = ("bestfit", "no_bestfit", "error", "timeout", "not_run")
 # same word into the log's severity column.
 #
 #   ok             a best fit that also converged
-#   fail_optimize  a best fit that never converged, or no best fit at all: the
-#                  optimiser did not settle, so widen or shift the bounds or
-#                  change the starting points
-#   rerun          RESUME=1 finishes it
+#   fail_optimize  a best fit that never converged, no best fit at all, or a
+#                  fit still running at DFE_TIMEOUT. The optimiser did not
+#                  settle from that starting point, so widen or shift the
+#                  bounds or use different starting points. Retrying as-is is
+#                  not worth it: a starting point needing more than
+#                  DFE_TIMEOUT is a bad one, not a slow one.
+#   rerun          never reached, so nothing is known yet. RESUME=1 covers
+#                  these, and only these.
 #   broken         fix the setup first; re-running changes nothing
 SEVERITIES = ("ok", "fail_optimize", "rerun", "broken")
 
@@ -96,8 +100,9 @@ def severity_counts(outcomes, n_converged):
     ok = min(n_converged, outcomes["n_bestfit"])
     return {
         "ok": ok,
-        "fail_optimize": (outcomes["n_bestfit"] - ok) + outcomes["n_no_bestfit"],
-        "rerun": outcomes["n_timeout"] + outcomes["n_not_run"],
+        "fail_optimize": ((outcomes["n_bestfit"] - ok)
+                          + outcomes["n_no_bestfit"] + outcomes["n_timeout"]),
+        "rerun": outcomes["n_not_run"],
         "broken": outcomes["n_error"],
     }
 # CLI defaults, read from pipeline.conf; the caller passes the configured

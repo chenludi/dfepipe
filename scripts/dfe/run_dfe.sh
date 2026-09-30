@@ -49,7 +49,8 @@
 #     if the clock killed it, `error` if it exited without writing any .opts
 #     (so it never ran one optimisation), else `no_bestfit` - it optimised, but
 #     no result was usable. check_dfe.py reads the log, adds `not_run` for the
-#     markers the array never reached, and counts how many converged.
+#     markers the array never reached, and counts how many converged. The
+#     seconds column is that fit's own wall clock, 0 if it was not run.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -346,19 +347,22 @@ fi
 # what makes the log scannable; the outcome says only what happened.
 #
 #   ok             a best fit that also converged - nothing to do
-#   fail_optimize  a best fit that never converged, or no best fit at all. The
-#                  optimiser did not settle: widen or shift the parameter
-#                  bounds, or give it different starting points.
-#   rerun          timeout or never reached. RESUME=1 finishes it; for a
-#                  timeout consider raising DFE_TIMEOUT too.
+#   fail_optimize  a best fit that never converged, no best fit at all, or a
+#                  fit still going after DFE_TIMEOUT. In all three the
+#                  optimiser did not settle from this starting point: widen or
+#                  shift the bounds, or use different starting points. Not
+#                  worth retrying as it stands - a starting point that needs
+#                  over DFE_TIMEOUT is a bad starting point, not a slow one.
+#   rerun          never reached, so nothing is known about it yet. RESUME=1
+#                  finishes these, and only these.
 #   broken         dadi-cli could not start. Re-running changes nothing until
 #                  the cache path, --demo-popt or the environment is fixed.
 severity_of() {  # <outcome> <converged yes|no|NA>
   case "$1" in
-    bestfit)     [[ "$2" == "yes" ]] && echo ok || echo fail_optimize ;;
-    no_bestfit)  echo fail_optimize ;;
-    timeout|not_run) echo rerun ;;
-    *)           echo broken ;;
+    bestfit)              [[ "$2" == "yes" ]] && echo ok || echo fail_optimize ;;
+    no_bestfit|timeout)   echo fail_optimize ;;
+    not_run)              echo rerun ;;
+    *)                    echo broken ;;
   esac
 }
 
@@ -384,7 +388,7 @@ log_outcome() {  # <logfile> <marker> <outcome> <converged> <seconds> <note>
 # Each command line is run on its own with a timeout, as
 # submit_dadi-cli_dfebash.sh:66-81 does: a starting point that wanders into a
 # numerically impossible region must not take the rest of the pack down with it.
-n_done=0; n_skipped=0; n_failed=0; n_deferred=0
+n_done=0; n_skipped=0; n_failed=0; n_deferred=0; n_timed_out_before=0
 
 # DFE_TIMEOUT as plain seconds, for the deadline arithmetic below.
 case "$DFE_TIMEOUT" in
@@ -398,9 +402,21 @@ for i in "${!beds[@]}"; do
   outlog="${d}/fit_outcomes.tsv"
   # noclobber makes the header write O_EXCL, so two array tasks racing to
   # create the log cannot truncate each other's rows.
+  # seconds is this fit's own wall clock: 0 for one that was skipped rather
+  # than run (already present, previously timed out, or left for RESUME=1).
   ( set -o noclobber
     printf 'marker\toutcome\tconverged\tseverity\tseconds\tnote\n' > "$outlog"
   ) 2>/dev/null || true
+  # A starting point that already hit DFE_TIMEOUT is not retried: it is a bad
+  # starting point, not a slow one, so a second run would spend another
+  # DFE_TIMEOUT to reach the same place. FORCE=1 retries it anyway.
+  declare -A timed_out_before=()
+  if [[ -s "$outlog" && "${FORCE:-0}" != "1" ]]; then
+    while IFS=$'\t' read -r _m _o _rest; do
+      [[ "$_o" == "timeout" ]] && timed_out_before["$_m"]=1
+    done < "$outlog"
+  fi
+
   if [[ -n "$pack_mode" ]]; then
     packs=("${d}/${pack_mode}")
     [[ -s "${packs[0]}" ]] || {
@@ -423,6 +439,10 @@ for i in "${!beds[@]}"; do
       prefix="$(awk '{for (k = 1; k < NF; k++) if ($k == "--output-prefix") print $(k+1)}' <<< "$cmd")"
       marker=""
       if [[ -n "$prefix" ]]; then marker="$(basename "$prefix")"; fi
+      if [[ -n "$marker" && -n "${timed_out_before[$marker]:-}" ]]; then
+        n_timed_out_before=$((n_timed_out_before + 1))
+        continue
+      fi
       if [[ -n "$prefix" && -s "${prefix}.InferDFE.bestfits" && "${FORCE:-0}" != "1" ]]; then
         n_skipped=$((n_skipped + 1))
         log_outcome "$outlog" "$marker" bestfit \
@@ -481,7 +501,8 @@ for i in "${!beds[@]}"; do
 done
 
 echo "run_dfe: ${pdf}: ${n_done} run, ${n_skipped} already present," \
-     "${n_failed} failed or timed out, ${n_deferred} left for RESUME=1"
+     "${n_failed} failed or timed out, ${n_timed_out_before} skipped as" \
+     "previously timed out, ${n_deferred} left for RESUME=1"
 if [[ "$n_deferred" -gt 0 ]]; then
   echo "run_dfe: ${n_deferred} starting point(s) were not begun because under" \
        "${DFE_TIMEOUT} of this task's h_rt remained. Re-run with RESUME=1." >&2
