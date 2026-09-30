@@ -123,7 +123,7 @@ for bed in "$@"; do
   sfs_dir="${OUT}/sfs/${base}/${FS_RUN}"
   demo_dir="${OUT}/demo/${base}/${FS_RUN}-${DEMO_MODEL}-${DEMO_RUN}"
   best="${demo_dir}/best_inference.txt"
-  d="${OUT}/dfe/${base}/${CACHE_RUN}-${pdf}-${DFE_RUN}"
+  d="${OUT}/dfe/${base}/${CACHE_RUN}-${CACHE_MARKER}-${pdf}-${DFE_RUN}"
 
   t_fs="${sfs_dir}/has_qui.${fsbase2}.fs"
   t_mut="${sfs_dir}/fsmut.has_qui.${fsbase2}.tab"
@@ -454,8 +454,8 @@ done
 # Diagnostic only: a bug in the check must never discard a finished stage, so its
 # failure warns and the stage's own exit status is left alone.
 if ! python3 "${REPO_DIR}/scripts/checks/check_dfe.py" \
-       --out "${OUT}/dfe" --run "${CACHE_RUN}-${pdf}-${DFE_RUN}" --pdf "${pdf}" \
-       --neu-run "${CACHE_RUN}-neu-${DFE_RUN}" \
+       --out "${OUT}/dfe" --run "${CACHE_RUN}-${CACHE_MARKER}-${pdf}-${DFE_RUN}" --pdf "${pdf}" \
+       --neu-run "${CACHE_RUN}-${CACHE_MARKER}-neu-${DFE_RUN}" \
        --sfs-out "${OUT}/sfs" --fs-run "${FS_RUN}" \
        --rare-max-count "${RESID_RARE_MAX_COUNT}" \
        --max-rare-warn "${RESID_MAX_RARE_WARN}" \

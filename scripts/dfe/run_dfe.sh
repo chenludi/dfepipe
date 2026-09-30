@@ -150,7 +150,7 @@ for bed in "$@"; do
 
   beds+=("$base"); test_fs+=("$t_fs"); mut_t+=("$t_mut"); mut_c+=("$c_mut")
   popts+=("$popt"); nas+=("$na"); caches+=("$cache")
-  dirs+=("${OUT}/dfe/${base}/${CACHE_RUN}-${pdf}-${DFE_RUN}")
+  dirs+=("${OUT}/dfe/${base}/${CACHE_RUN}-${CACHE_MARKER}-${pdf}-${DFE_RUN}")
 done
 
 pack_mode="${DFE_PACK:-}"

@@ -71,8 +71,8 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
 2. ~~`HASQUI_MIN_FRAC`~~ **RESOLVED: 0.90 kept.**
 3. ~~Per-chromosome `hasqui_ratio`~~ **RESOLVED: added**, against that
    chromosome's own prep bp, so one bad chromosome is visible.
-4. DFE run directories are keyed `<CACHE_RUN>-<pdf>-<DFE_RUN>`, which drops
-   `CACHE_MARKER` — two markers under one `CACHE_RUN` would collide.
+4. ~~DFE run directory naming~~ **RESOLVED: marker added**, now
+   `<CACHE_RUN>-<CACHE_MARKER>-<pdf>-<DFE_RUN>`.
 5. Seven config keys the stages needed and `config/` lacks:
    `NEUGAMMAZERO_{LOWER,UPPER,BINS}` (shape upper is 3, not 2),
    `DFE_TIMEOUT=60m`, `DFE_CUTOFF_RANK=2`, `DFE_PLOT_TOP=10`, `DFE_CACHE_FILE`.

@@ -44,6 +44,7 @@ ensure_scheduler
 : "${DEMO_RUN:?DEMO_RUN not set}"
 : "${DEMO_MODEL:?DEMO_MODEL not set}"
 : "${CACHE_RUN:?CACHE_RUN not set}"
+: "${CACHE_MARKER:?CACHE_MARKER not set}"   # part of the run key: two markers must not share a directory
 : "${DFE_RUN:?DFE_RUN not set}"
 : "${SGE_DFE_RT:?SGE_DFE_RT not set}"
 : "${SGE_DFE_MEM:?SGE_DFE_MEM not set}"
@@ -106,7 +107,7 @@ DFE_GENERATE_ONLY=1 bash "${REPO_DIR}/scripts/dfe/run_dfe.sh" "$pdf" "${beds[@]}
 task_beds=(); task_packs=()
 for bed in "${beds[@]}"; do
   base="$(basename "$bed" .bed)"
-  d="${OUT}/dfe/${base}/${CACHE_RUN}-${pdf}-${DFE_RUN}"
+  d="${OUT}/dfe/${base}/${CACHE_RUN}-${CACHE_MARKER}-${pdf}-${DFE_RUN}"
   found=0
   while IFS= read -r p; do
     task_beds+=("$bed"); task_packs+=("$(basename "$p")"); found=1

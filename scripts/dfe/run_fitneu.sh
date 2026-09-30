@@ -122,7 +122,7 @@ for bed in "$@"; do
     echo "run_fitneu: no .bestfits for max_ll_key=${key} in ${demo_dir}" >&2
     exit 1; }
 
-  d="${OUT}/dfe/${base}/${CACHE_RUN}-neu-${DFE_RUN}"
+  d="${OUT}/dfe/${base}/${CACHE_RUN}-${CACHE_MARKER}-neu-${DFE_RUN}"
   if [[ -d "$d" && -n "$(ls -A "$d" 2>/dev/null)" ]]; then
     if [[ "${FORCE:-0}" == "1" ]]; then
       echo "run_fitneu: FORCE=1 - overwriting the existing run in ${d}" >&2
@@ -330,7 +330,7 @@ done
 # Diagnostic only: a bug in the check must never discard a finished stage, so its
 # failure warns and the stage's own exit status is left alone.
 if ! python3 "${REPO_DIR}/scripts/checks/check_dfe.py" \
-       --out "${OUT}/dfe" --run "${CACHE_RUN}-neu-${DFE_RUN}" --pdf neu \
+       --out "${OUT}/dfe" --run "${CACHE_RUN}-${CACHE_MARKER}-neu-${DFE_RUN}" --pdf neu \
        --sfs-out "${OUT}/sfs" --fs-run "${FS_RUN}" \
        --rare-max-count "${RESID_RARE_MAX_COUNT}" \
        --max-rare-warn "${RESID_MAX_RARE_WARN}" \
