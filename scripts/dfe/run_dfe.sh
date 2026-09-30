@@ -402,8 +402,12 @@ for i in "${!beds[@]}"; do
   outlog="${d}/fit_outcomes.tsv"
   # noclobber makes the header write O_EXCL, so two array tasks racing to
   # create the log cannot truncate each other's rows.
-  # seconds is this fit's own wall clock: 0 for one that was skipped rather
-  # than run (already present, previously timed out, or left for RESUME=1).
+  # One row per marker, and a marker is one line of a pack: one `dadi-cli
+  # InferDFE --p0 <shape scale>` call, which itself runs up to OPTCOUNT
+  # optimisations from perturbations of that p0 and stops early once
+  # NUM_CONVERGENCE of them agree. So `seconds` is the wall clock of that whole
+  # call, covering all of its optimisations, and 0 when it was skipped rather
+  # than run (already present, previously timed out, left for RESUME=1).
   ( set -o noclobber
     printf 'marker\toutcome\tconverged\tseverity\tseconds\tnote\n' > "$outlog"
   ) 2>/dev/null || true
