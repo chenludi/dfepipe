@@ -29,6 +29,29 @@ merged midpoint and can reach sequence that no sub-interval's window reached,
 picking up a control that none of them found. Both effects are real; which
 dominates depends on the local interval structure.
 
+**Partly answered, 2026-09-29.** The chr12 gain is not the "region keeps its
+sub-intervals as a unit" effect. Two bookended ELS intervals,
+
+    chr12  120230636  120230966   330 bp
+    chr12  120230966  120231118   152 bp   <- the interval that was gained
+
+merge into [120230636, 120231118] with midpoint 120230877, where the 152 bp
+interval's own midpoint is 120231042. The window does not grow, it **moves
+165 bp left**: [120206042, 120256042] unmerged vs [120205877, 120255877]
+merged. A quiescent site sits in the sliver that move gains, so the interval
+finds a control and is kept. Nothing was lost on chr12 at all (1 interval
+gained, 0 lost).
+
+So the general rule is that merging **relocates** the window centre, and a
+relocated window can gain or lose controls either way. The "long region swallows
+its own window" effect is a separate mechanism that only bites above
+2 x CTRL_FLANK = 50 kb, and is still the thing worth counting.
+
+Measured magnitudes for ELS: control set 602,593,295 merged vs 602,593,816
+unmerged (-521 bp, and merging can only shrink the control set, since the union
+of per-interval windows can only get smaller); test set 205,209,325 vs
+205,209,348 (-23 bp net, from +152 on chr12 and -175 on chr16).
+
 **Steps**
 
 - [ ] Distribution of merged region lengths for ELS per chromosome: how many
