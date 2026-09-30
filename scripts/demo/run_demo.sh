@@ -20,7 +20,7 @@
 # `max_ll_key` that best_inference.txt reports and run_bestfit.sh recovers the
 # winning file by globbing for it.
 #
-# The spectrum fitted is the QUIESCENT CONTROL one, not the test one: the
+# The spectrum fitted is the quiescent control one, not the test one: the
 # demography is estimated from putatively neutral sites and then held fixed while
 # the DFE is fitted to the test sites.
 #

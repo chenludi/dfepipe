@@ -54,24 +54,27 @@ BESTFITS_SUFFIX = ".InferDFE.bestfits"
 # dadi-cli writes .InferDFE.opts.<n> as it optimises, so its absence means the
 # optimisation never started.
 OPTS_INFIX = ".InferDFE.opts."
-# What became of one starting point:
+# What became of one starting point. dadi-cli InferDFE runs OPTCOUNT
+# optimisations, writes one row per optimisation into .opts, then keeps the rows
+# that parse and lie inside the bounds; if any survive it writes .bestfits
+# (BestFit.py:56-86). So the outcome is named after the file that came back:
 #
-#   fitted      wrote a .bestfits. Whether that file carries a converged block
-#               is a separate, stricter question (n_converged_block); roughly a
-#               third of the published .bestfits files never converged.
-#   no_optimum  dadi-cli ran its optimisations but none reached a usable
-#               likelihood, so it wrote no .bestfits. Normal for a starting
-#               point at the edge of the grid, and part of the design.
-#   crashed     dadi-cli exited without optimising at all: no .opts file. That
-#               is a technical fault - a cache path that does not exist, a
-#               --demo-popt dadi cannot read, a broken environment - and not a
-#               property of the likelihood surface.
-#   timeout     killed by the per-fit clock, DFE_TIMEOUT.
-#   not_run     the array task never reached it, usually its own h_rt.
-OUTCOME_KINDS = ("fitted", "no_optimum", "crashed", "timeout", "not_run")
-# Earlier runs wrote `converged` for what is now `fitted`, and `no_likelihood`
-# for what is now `no_optimum` (which then also covered a crash).
-OUTCOME_ALIASES = {"converged": "fitted", "no_likelihood": "no_optimum"}
+#   bestfit     a .bestfits was written, so there is a fit to take. Whether it
+#               also carries a "# Converged results" block is a separate,
+#               stricter question - that needs NUM_CONVERGENCE rows agreeing
+#               within delta, and about a third of the published .bestfits
+#               files have no such block. Counted as n_converged_block.
+#   no_bestfit  .opts was written, so dadi-cli did optimise, but no row in it
+#               was usable: the likelihood came out as `--`, or the parameters
+#               landed outside the bounds. Expected for a starting point at the
+#               edge of the grid, and not a problem in itself.
+#   error       no .opts at all, so dadi-cli never ran a single optimisation.
+#               A technical fault: a cache file that is not there, a
+#               --demo-popt it cannot read, the wrong environment.
+#   timeout     killed part-way by the per-fit clock, DFE_TIMEOUT.
+#   not_run     the array task never reached this starting point, usually
+#               because the task itself hit h_rt.
+OUTCOME_KINDS = ("bestfit", "no_bestfit", "error", "timeout", "not_run")
 # CLI defaults, read from pipeline.conf; the caller passes the configured
 # values through --max-notrun-frac and friends.
 DFE_MAX_NOTRUN_FRAC = conf.get_float("DFE_MAX_NOTRUN_FRAC", 0.20)
@@ -101,14 +104,14 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
     `neu` row - a single closed-form likelihood, not an optimisation - is
     assessed. `n_converged_block` counts the .bestfits files that carry a
     "# Converged results" block. It is stricter than count_outcomes()'s
-    `n_fitted` (any non-empty .bestfits) - about a third of the published files
-    are fitted but never converged - and it is the number the convergence
-    warning uses.
+    `n_bestfit` (any non-empty .bestfits) - about a third of the published
+    files have a best fit but never converged - and it is the number the
+    convergence warning uses.
 
     `outcomes` is a count_outcomes() mapping, or None where there are no
-    starting points to account for. no_optimum and timeout are reported by
+    starting points to account for. no_bestfit and timeout are reported by
     row_for and never judged here: a starting point that reaches no likelihood
-    is part of the design. `crashed` is judged, because it is technical.
+    is part of the design. `error` is judged, because it is technical.
     """
     fails = []
     if n_fits is not None and n_fits < 1:
@@ -116,21 +119,22 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
             "no fits produced: no *.InferDFE.bestfits in the run directory. "
             "Either run_dfe.sh has not run, or every command in every pack "
             "failed - check the SGE logs and the pack files")
-    if outcomes and outcomes["n_starting_points"] and not outcomes["n_fitted"]:
+    if outcomes and outcomes["n_starting_points"] and not outcomes["n_bestfit"]:
         fails.append(
-            "not one of the %d starting points produced a fit, so there is no "
-            "best fit to take: %d optimised without reaching a usable "
-            "likelihood, %d never started optimising, %d timed out, %d never ran"
-            % (outcomes["n_starting_points"], outcomes["n_no_optimum"],
-               outcomes["n_crashed"], outcomes["n_timeout"],
+            "none of the %d starting points produced a best fit, so there is "
+            "nothing to take: %d optimised but reached no usable likelihood, "
+            "%d never started optimising, %d timed out, %d never ran"
+            % (outcomes["n_starting_points"], outcomes["n_no_bestfit"],
+               outcomes["n_error"], outcomes["n_timeout"],
                outcomes["n_not_run"]))
-    if outcomes and outcomes["n_crashed"] == outcomes["n_starting_points"] > 0:
+    if outcomes and outcomes["n_error"] == outcomes["n_starting_points"] > 0:
         fails.append(
-            "all %d starting points exited without optimising at all - no .opts "
-            "file anywhere. dadi-cli never got started, so this is a technical "
-            "fault, not a hard likelihood surface: check that the cache file "
-            "exists, that --demo-popt is readable, and that the environment is "
-            "the right one" % outcomes["n_starting_points"])
+            "all %d starting points exited before running a single "
+            "optimisation - there is no .opts file anywhere. dadi-cli never "
+            "started, so this is a technical fault rather than a hard "
+            "likelihood surface: check that the cache file exists, that "
+            "--demo-popt is readable, and that the environment is the right one"
+            % outcomes["n_starting_points"])
     if ll_dfe is None:
         fails.append(
             "%s is missing or holds no fit: the summary stage and the "
@@ -171,11 +175,11 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
                  "under-explored. RESUME=1 finishes them"
                  % (outcomes["n_not_run"], n, 100 * outcomes["frac_not_run"],
                     100 * max_notrun_frac))
-        if outcomes["n_crashed"]:
-            warn("%d of %d starting points exited without optimising at all (no "
-                 ".opts file): that is a technical fault rather than a hard "
-                 "likelihood surface, so check the SGE logs for those markers"
-                 % (outcomes["n_crashed"], n))
+        if outcomes["n_error"]:
+            warn("%d of %d starting points exited before running a single "
+                 "optimisation (no .opts file): a technical fault rather than a "
+                 "hard likelihood surface, so check the SGE logs for those "
+                 "markers" % (outcomes["n_error"], n))
         # Keyed on the converged count, not the looser fitted one: a fit with no
         # converged block says nothing about whether the optimiser settled.
         if n_converged_block is not None:
@@ -260,7 +264,6 @@ def read_fit_outcomes(path):
                 if len(parts) < 2:
                     continue
                 marker, outcome = parts[0].strip(), parts[1].strip()
-                outcome = OUTCOME_ALIASES.get(outcome, outcome)
                 if not marker or marker == "marker":
                     continue
                 if outcome in OUTCOME_KINDS:
@@ -297,29 +300,25 @@ def read_pack_markers(dfe_dir):
 def count_outcomes(dfe_dir):
     """The four per-starting-point outcome counts for one run directory.
 
-    A non-empty .bestfits is `fitted` whatever the log says - the file system
-    is the authority, and it is also the only evidence a run made before this
-    log existed leaves behind. Otherwise the log's last row for that marker
-    decides. A marker in the packs with neither is `not_run`: the array task
-    never reached it.
-
-    A marker with no .bestfits is `crashed` when it left no .opts file either,
-    because dadi-cli writes .opts as it optimises: no .opts means it never got
-    that far. Anything else that produced no .bestfits did optimise and simply
-    never reached a usable likelihood, which is `no_optimum`.
+    The file system is the authority, not the log: a .bestfits on disk is a
+    `bestfit` whatever the log says, and it is the only evidence a run made
+    before this log existed leaves behind. With no .bestfits, an .opts file
+    means it optimised (`no_bestfit`) and no .opts means it never started
+    (`error`); the log only settles `timeout`, which leaves a part-written
+    .opts. A marker in the packs with no log row and no files is `not_run`.
     """
     dfe_dir = str(dfe_dir)
     markers = read_pack_markers(dfe_dir)
     logged = read_fit_outcomes(os.path.join(dfe_dir, OUTCOMES_NAME))
-    fitted = set()
+    have_bestfits = set()
     for path in glob.glob(os.path.join(dfe_dir, "*" + BESTFITS_SUFFIX)):
         try:
             if os.path.getsize(path) > 0:
-                fitted.add(os.path.basename(path)[:-len(BESTFITS_SUFFIX)])
+                have_bestfits.add(os.path.basename(path)[:-len(BESTFITS_SUFFIX)])
         except OSError:
             continue
     if not markers:
-        markers = sorted(set(logged) | fitted)
+        markers = sorted(set(logged) | have_bestfits)
 
     optimised = set()
     for path in glob.glob(os.path.join(dfe_dir, "*" + OPTS_INFIX + "*")):
@@ -328,17 +327,14 @@ def count_outcomes(dfe_dir):
     counts = dict.fromkeys(("n_" + k for k in OUTCOME_KINDS), 0)
     for marker in markers:
         entry = logged.get(marker)
-        if marker in fitted:
-            counts["n_fitted"] += 1
+        if marker in have_bestfits:
+            counts["n_bestfit"] += 1
         elif entry and entry["outcome"] == "timeout":
             counts["n_timeout"] += 1
         elif marker in optimised:
-            # It optimised but wrote no .bestfits, whatever the log says.
-            counts["n_no_optimum"] += 1
+            counts["n_no_bestfit"] += 1
         elif entry:
-            # Attempted, but nothing came back - not even the .opts dadi-cli
-            # writes while it optimises.
-            counts["n_crashed"] += 1
+            counts["n_error"] += 1
         else:
             counts["n_not_run"] += 1
 
@@ -475,7 +471,7 @@ def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
         "ll_spread_top": round(max(top) - min(top), 6) if len(top) >= 2 else "NA",
     }
     # Every starting point accounted for, in the five outcomes of
-    # fit_outcomes.tsv. no_optimum and timeout are reported, never judged.
+    # fit_outcomes.tsv. no_bestfit and timeout are reported, never judged.
     row["n_starting_points"] = outcomes["n_starting_points"] if outcomes else "NA"
     for kind in OUTCOME_KINDS:
         row["n_" + kind] = outcomes["n_" + kind] if outcomes else "NA"

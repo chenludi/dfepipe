@@ -44,12 +44,12 @@
 #   * the malformed makefile_p0_dfeinput.tab (nine header columns, eight data
 #     fields) is replaced by spec.txt, which every stage in this package writes.
 #   * every starting point's outcome is appended to fit_outcomes.tsv
-#     (marker / outcome / seconds / note) as its fit finishes: `fitted` if it
-#     wrote a .bestfits, `timeout` if the clock killed it, `crashed` if it
-#     exited without writing any .opts file (a technical fault), else
-#     `no_optimum` - it optimised but never reached a usable likelihood.
-#     check_dfe.py reads the log, derives `not_run` for the markers the array
-#     never reached, and counts how many fits actually converged.
+#     (marker / outcome / seconds / note) as its fit finishes, named after the
+#     file that came back: `bestfit` if dadi-cli wrote a .bestfits, `timeout`
+#     if the clock killed it, `error` if it exited without writing any .opts
+#     (so it never ran one optimisation), else `no_bestfit` - it optimised, but
+#     no result was usable. check_dfe.py reads the log, adds `not_run` for the
+#     markers the array never reached, and counts how many converged.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -387,7 +387,7 @@ for i in "${!beds[@]}"; do
       if [[ -n "$prefix" ]]; then marker="$(basename "$prefix")"; fi
       if [[ -n "$prefix" && -s "${prefix}.InferDFE.bestfits" && "${FORCE:-0}" != "1" ]]; then
         n_skipped=$((n_skipped + 1))
-        log_outcome "$outlog" "$marker" fitted 0 "already present, not re-run"
+        log_outcome "$outlog" "$marker" bestfit 0 "already present, not re-run"
         continue
       fi
 
@@ -405,21 +405,20 @@ for i in "${!beds[@]}"; do
         n_failed=$((n_failed + 1))
       fi
 
-      # A non-empty .bestfits is the fit. Exit 124 is the timeout kill. With no
-      # .bestfits and no .opts either, dadi-cli never started optimising, which
-      # is a technical fault; with .opts it optimised and reached no usable
-      # likelihood. The exit status goes in the note either way.
+      # A .bestfits is the fit. Exit 124 is the timeout kill. Otherwise .opts
+      # decides: dadi-cli writes it as it optimises, so no .opts means it never
+      # ran one optimisation. The exit status goes in the note either way.
       if [[ -n "$marker" ]]; then
         if [[ -s "${prefix}.InferDFE.bestfits" ]]; then
-          log_outcome "$outlog" "$marker" fitted "$((SECONDS - t0))" "exit=${rc}"
+          log_outcome "$outlog" "$marker" bestfit "$((SECONDS - t0))" "exit=${rc}"
         elif [[ "$rc" -eq 124 ]]; then
           log_outcome "$outlog" "$marker" timeout "$((SECONDS - t0))" \
                       "killed after ${DFE_TIMEOUT}"
         elif compgen -G "${prefix}.InferDFE.opts.*" >/dev/null; then
-          log_outcome "$outlog" "$marker" no_optimum "$((SECONDS - t0))" \
-                      "exit=${rc}, optimised but no usable likelihood"
+          log_outcome "$outlog" "$marker" no_bestfit "$((SECONDS - t0))" \
+                      "exit=${rc}, optimised but no usable result"
         else
-          log_outcome "$outlog" "$marker" crashed "$((SECONDS - t0))" \
+          log_outcome "$outlog" "$marker" error "$((SECONDS - t0))" \
                       "exit=${rc}, no .opts: never started optimising"
         fi
       fi
