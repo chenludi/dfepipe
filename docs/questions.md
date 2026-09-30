@@ -19,11 +19,25 @@ the impact on published values is a todo in docs/tocheck.md.
 Two other scripts in the same pipeline already take the FIRST row
 (`dadi_cal_ll_neu_0723.py:112-127`, `make_p0_dfe_0430.py:206-221`).
 
-**B. A DFE pack can need 50 h inside a 23:50 h job.** `PACKNUMBER=50` commands x
-`timeout 60m` vs `h_rt=23:50:00` (`submit_dadi-cli_dfebash.sh:8,66`). Not
-hypothetical: the reference gamma directory has 190 starting points but 144
-`.bestfits` — 46 died unfinished; neugamma 210 vs 175. **Cut PACKNUMBER, cut the
-timeout, or raise h_rt?**
+**B. Only 4 starting points were lost to the clock, not 46.** Diagnosed
+2026-09-30 for phastCons17way 0-5 gamma (190 starting points):
+
+| outcome | count |
+|---|---|
+| converged, wrote `.bestfits` | 144 |
+| ran all 100 optimizations, no valid likelihood | 42 |
+| never started (h_rt kill, contiguous 46-49) | 4 |
+
+The 42 are not a timing problem: every row of their `.opts` files has `--` for
+the likelihood and `scale` pinned at the 1e-10 lower bound, i.e. the optimiser
+degenerated. They start from the smallest shapes in the grid
+(`make_p0_dfe_0430.py` log-spaces shape 1e-10 to 2); e.g. point 62 starts at
+shape 4.8e-05.
+
+Still true that `PACKNUMBER=50` x `timeout 60m` = 50 h exceeds `h_rt=23:50:00`
+(`submit_dadi-cli_dfebash.sh:8,66`), and that is what cost the 4. **Raise h_rt,
+or cut PACKNUMBER?** Separately: **should the p0 grid still spend ~22% of its
+starting points on shapes that cannot produce a likelihood?**
 
 ## Decisions needed
 
