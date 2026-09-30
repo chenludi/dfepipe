@@ -127,3 +127,20 @@ def test_every_asserted_name_is_a_config_key():
             if name not in keys | RUNTIME_SET | ENV_SH_SET:
                 missing.append(f"{path.relative_to(ROOT)}:{name}")
     assert missing == [], f"asserted but never set by pipeline.conf: {missing}"
+
+
+def test_scheduling_inputs_default_to_no_change():
+    """Both preferences empty means PACKNUMBER stands, so a published run is
+    reproduced byte for byte."""
+    conf = (ROOT / "config" / "pipeline.conf").read_text()
+    assert 'DFE_MAX_TASKS="${DFE_MAX_TASKS:-}"' in conf
+    assert 'DFE_TARGET_TASK_HOURS="${DFE_TARGET_TASK_HOURS:-}"' in conf
+    assert 'PACKNUMBER="${PACKNUMBER:-50}"' in conf
+
+
+def test_submit_dfe_derives_packnumber_from_the_preferences():
+    sub = (ROOT / "scripts" / "sge" / "submit_dfe.sh").read_text()
+    # a target time sets PACKNUMBER before the packs are generated ...
+    assert "DFE_TARGET_TASK_HOURS * 3600 / DFE_SECONDS_PER_FIT" in sub
+    # ... and a task cap is checked once the array size is known, and refuses
+    assert "DFE_MAX_TASKS" in sub and "Nothing was submitted" in sub

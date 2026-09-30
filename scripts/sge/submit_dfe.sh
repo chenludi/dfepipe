@@ -52,17 +52,34 @@ ensure_scheduler
 # 23:50 in the shipped config. The worker's deadline guard means the overflow is
 # recorded as not_run and finished by RESUME=1 rather than killed part-way, but
 # say so up front so the extra pass is expected, not a surprise.
+# How many fits go in one task. DFE_TARGET_TASK_HOURS, if set, decides it from
+# DFE_SECONDS_PER_FIT; otherwise PACKNUMBER stands as configured. The estimate
+# is deliberately crude: getting it wrong costs one extra RESUME pass, because
+# run_dfe.sh stops before h_rt and logs the remainder as not_run.
+if [[ -n "${DFE_TARGET_TASK_HOURS:-}" ]]; then
+  _want=$(( DFE_TARGET_TASK_HOURS * 3600 / DFE_SECONDS_PER_FIT ))
+  (( _want < 1 )) && _want=1
+  echo "submit_dfe: DFE_TARGET_TASK_HOURS=${DFE_TARGET_TASK_HOURS} at" \
+       "${DFE_SECONDS_PER_FIT}s per fit -> PACKNUMBER=${_want}" \
+       "(was ${PACKNUMBER})" >&2
+  PACKNUMBER=$_want
+  export PACKNUMBER
+fi
+
+# h_rt is the hard ceiling whatever the preference says.
 _rt_h=${SGE_DFE_RT%%:*}
+_est_h=$(( PACKNUMBER * DFE_SECONDS_PER_FIT / 3600 ))
 case "$DFE_TIMEOUT" in
   *h) _to_min=$(( ${DFE_TIMEOUT%h} * 60 )) ;;
   *m) _to_min=${DFE_TIMEOUT%m} ;;
   *)  _to_min=60 ;;
 esac
-if (( PACKNUMBER * _to_min > 10#${_rt_h} * 60 )); then
-  echo "submit_dfe: note - ${PACKNUMBER} fits x ${DFE_TIMEOUT} could need" \
-       "$(( PACKNUMBER * _to_min / 60 ))h but h_rt is ${SGE_DFE_RT}. Slow packs" \
-       "will stop early and report not_run; re-run with RESUME=1 to finish," \
-       "or lower PACKNUMBER to $(( 10#${_rt_h} * 60 / _to_min )) for one pass." >&2
+echo "submit_dfe: ${PACKNUMBER} fits per task, estimated ${_est_h}h" \
+     "(worst case $(( PACKNUMBER * _to_min / 60 ))h), h_rt ${SGE_DFE_RT}" >&2
+if (( _est_h * 60 > 10#${_rt_h} * 60 )); then
+  echo "submit_dfe: the ESTIMATE already exceeds h_rt. Each task will stop" \
+       "early and log the rest as not_run; RESUME=1 finishes them. For one" \
+       "pass use DFE_TARGET_TASK_HOURS=$(( 10#${_rt_h} * 4 / 5 ))." >&2
 fi
 : "${SGE_DFE_MEM:?SGE_DFE_MEM not set}"
 : "${SGE_DFE_PE:?SGE_DFE_PE not set}"
@@ -124,19 +141,30 @@ DFE_GENERATE_ONLY=1 bash "${REPO_DIR}/scripts/dfe/run_dfe.sh" "$pdf" "${beds[@]}
 
 # One task per (bed, pack), in one fixed order both sides agree on. LC_ALL=C so
 # the launcher and the worker cannot disagree about collation.
-task_beds=(); task_packs=()
+task_beds=(); task_packs=(); n_points=0
 for bed in "${beds[@]}"; do
   base="$(basename "$bed" .bed)"
   d="${OUT}/dfe/${base}/${CACHE_RUN}-${CACHE_MARKER}-${pdf}-${DFE_RUN}"
   found=0
   while IFS= read -r p; do
     task_beds+=("$bed"); task_packs+=("$(basename "$p")"); found=1
+    n_points=$(( n_points + $(grep -cv '^[[:space:]]*\(#\|$\)' "$p") ))
   done < <(LC_ALL=C ls -1 "${d}"/dadi-cli_dfe.*.sh 2>/dev/null)
   if [[ "$found" -eq 0 ]]; then
     echo "submit_dfe: no command packs were generated for '${base}' in ${d}" >&2
     exit 1
   fi
 done
+
+if [[ -n "${DFE_MAX_TASKS:-}" ]] && (( ${#task_packs[@]} > DFE_MAX_TASKS )); then
+  _need=$(( (n_points + DFE_MAX_TASKS - 1) / DFE_MAX_TASKS ))
+  echo "submit_dfe: this would be ${#task_packs[@]} array tasks but" \
+       "DFE_MAX_TASKS=${DFE_MAX_TASKS}. Nothing was submitted." >&2
+  echo "      ${n_points} starting points over ${DFE_MAX_TASKS} tasks needs" \
+       "PACKNUMBER=${_need} (about $(( _need * DFE_SECONDS_PER_FIT / 3600 ))h" \
+       "per task). Re-run with FORCE=1 PACKNUMBER=${_need}." >&2
+  exit 1
+fi
 
 job_env="${job_env},DFE_TASK_BEDS=${task_beds[*]},DFE_PACKS=${task_packs[*]}"
 

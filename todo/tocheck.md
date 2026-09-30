@@ -97,3 +97,25 @@ deliberate numerical difference between the old and new pipelines.
 
 Expected to be tiny: for phastCons17way 0-5 the first-to-last gap is 7e-9 in ll
 and the 6th decimal of shape.
+
+
+## 3. Use measured fit times instead of DFE_SECONDS_PER_FIT
+
+`submit_dfe.sh` sizes a task from `DFE_SECONDS_PER_FIT=330`, one shipped
+constant. Measured 2026-09-30 on phastCons17way 0-5 gamma (job 14973594): a
+50-fit pack took 4h35m, so 330 s per fit on average, but the spread is wide:
+
+| fit | time |
+|---|---|
+| converges early (5-30 rows in .opts) | 8-30 s |
+| runs all 100 optimisations | 110-220 s |
+| hits DFE_TIMEOUT | 3600 s, 1 of 190 |
+
+- [ ] Read a previous run's `fit_outcomes.tsv` and use its 95th percentile
+      instead of the constant. The column is already there.
+- [ ] The bimodality is predictable from the starting point, not random: the
+      slow fits are the small-shape seeds that never converge. A per-p0
+      estimate would beat any single number.
+
+Low priority: the deadline guard means a wrong estimate costs one extra
+`RESUME=1` pass, never lost work.
