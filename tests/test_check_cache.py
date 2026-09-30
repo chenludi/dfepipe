@@ -339,3 +339,12 @@ def test_main_returns_zero_even_when_a_bed_fails(tmp_path):
                  "--gamma-pts", str(REAL_GAMMA_PTS),
                  "--projection", str(REAL_PROJECTION), "ELS.bed"]) == 0
     assert "FAIL" in (tmp_path / "ELS" / "1-1-1" / "check_cache.tsv").read_text()
+
+
+def test_a_killed_build_says_to_raise_the_time_limit(tmp_path):
+    """A log without a .bpkl is the h_rt kill; the cache cannot be resumed."""
+    status, reasons = assess_cache(None, None, None, None, 18460.0, 270480,
+                                   0.9, killed=True)
+    assert status == "FAIL"
+    joined = " ".join(reasons)
+    assert "SGE_CACHE_RT" in joined and "resumed" in joined

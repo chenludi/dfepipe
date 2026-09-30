@@ -12,7 +12,10 @@
 # what it can before queueing: every bed must already have a best_inference.txt,
 # and a bed whose cache exists is not submitted at all unless FORCE=1.
 #
-# The queue request is submit_dadi-cli_cache_simp.sh's: h_rt=10:10:00,h_data=15G
+# Cache cost is data-independent: gamma_pts (linear) x grid size (~quadratic),
+# divided by cpus. Measured 20 min at 300 pts / 1540 / 10 cpus. We estimate from
+# that and raise SGE_CACHE_RT automatically when a marker needs more, so a big
+# marker cannot silently inherit a request sized for the standard one.
 # on highp, -pe shared 10. SGE_CACHE_EXTRA carries the highp; empty asks for no
 # extra resource.
 set -euo pipefail
@@ -89,6 +92,22 @@ job_env="${job_env},DEMO_MODEL=${DEMO_MODEL},CACHE_RUN=${CACHE_RUN}"
 job_env="${job_env},CACHE_MARKER=${CACHE_MARKER}"
 job_env="${job_env},CACHE_BEDS=${beds[*]}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
+
+# Estimate, then request 3x it (a killed cache leaves nothing to resume from,
+# but 6x an extrapolated estimate exceeds the queue limits for big markers).
+max_grid="$(printf '%s\n' ${GRIDS} | sort -n | tail -1)"
+est_s="$(awk -v g="${GAMMA_PTS}" -v m="${max_grid}" -v c="${SGE_CACHE_PE}" \
+    'BEGIN {printf "%d", 40 * g * (m/1540)^2 / c}')"
+req_s=$(( est_s * 3 ))
+# Never go below the configured request; raise it if the estimate says so.
+conf_s="$(awk -F: '{print ($1*3600)+($2*60)+$3}' <<< "${SGE_CACHE_RT}")"
+if (( req_s > conf_s )); then
+  SGE_CACHE_RT="$(printf '%d:%02d:00' $(( req_s / 3600 )) $(( (req_s % 3600) / 60 )))"
+  echo "submit_cache: ${GAMMA_PTS} gamma points on grid ${max_grid} with ${SGE_CACHE_PE} cpus" >&2
+  echo "              estimates ~$(( est_s / 60 )) min; requesting h_rt=${SGE_CACHE_RT}" >&2
+else
+  echo "submit_cache: estimated ~$(( est_s / 60 )) min; requesting h_rt=${SGE_CACHE_RT}" >&2
+fi
 
 qsub ${TERSE:+-terse} \
   -N "dfe_cache_${CACHE_RUN}" \

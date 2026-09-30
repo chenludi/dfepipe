@@ -76,7 +76,7 @@ def expected_bytes(gamma_pts, projection):
 
 
 def assess_cache(nbytes, usable_frac, gamma_lo, gamma_hi, na, min_bytes,
-                 min_usable, s_high=0.5):
+                 min_usable, s_high=0.5, killed=False):
     """(status, reasons) for one cache. See the module docstring.
 
     `nbytes` is None when the .bpkl is absent, `usable_frac` and the gamma
@@ -84,6 +84,10 @@ def assess_cache(nbytes, usable_frac, gamma_lo, gamma_hi, na, min_bytes,
     derived from, None when unknown; `s_high` is GAMMA_S_HIGH, so the range
     warning compares against the bound this run actually asked for.
     """
+    if nbytes is None and killed:
+        return "FAIL", ["no cache file, and the log stops mid-build: the job was "
+                        "probably killed at its h_rt limit. Raise SGE_CACHE_RT "
+                        "and re-run - a partial cache cannot be resumed."]
     if nbytes is None:
         return "FAIL", ["the cache file is missing: dadi-cli GenerateCache did "
                         "not finish. Check the SGE log for this bed"]
@@ -212,6 +216,12 @@ def row_for(cache_dir, base, marker, min_size_frac, min_usable, s_high,
     spec = read_spec(os.path.join(cache_dir, SPEC_NAME))
     na = spec.get("Na")
 
+    # A cache.log that exists while the .bpkl does not means the build started
+    # and did not finish - almost always the h_rt kill, since GenerateCache
+    # writes the pickle only at the end.
+    killed = (not os.path.isfile(bpkl)
+              and os.path.isfile(os.path.join(cache_dir, "cache.log")))
+
     nbytes = os.path.getsize(bpkl) if os.path.isfile(bpkl) else None
     stats = load_cache_stats(bpkl) if nbytes else None
     if stats is None:
@@ -223,7 +233,7 @@ def row_for(cache_dir, base, marker, min_size_frac, min_usable, s_high,
     expected = expected_bytes(gamma_pts, projection)
     min_bytes = int(min_size_frac * expected)
     status, reasons = assess_cache(nbytes, frac, lo, hi, na, min_bytes,
-                                   min_usable, s_high=s_high)
+                                   min_usable, s_high=s_high, killed=killed)
     return {
         "item": base,
         "status": status,

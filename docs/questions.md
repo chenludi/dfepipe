@@ -25,6 +25,14 @@ timeout, or raise h_rt?**
 
 ## Decisions needed
 
+0. **Cache runtime.** Our run took **20 min**, not the 10:10:00 your script
+   requested. Cost is data-independent (grid size ~quadratic, gamma_pts linear,
+   sample size minor, sequence length none), so one recommendation covers every
+   bed. `SGE_CACHE_RT` is now 2:00:00, and `submit_cache.sh` estimates from
+   40 core-seconds per spectrum and raises the request itself for a bigger
+   marker (`large`: ~12 h estimated, 36 h requested). A killed build now FAILs
+   with "raise SGE_CACHE_RT and re-run - a partial cache cannot be resumed".
+   **Still on `highp`: keep it now the job is 20 min rather than 10 h?**
 1. `CACHE_MIN_SIZE_FRAC = 0.5` — fail a cache below half its expected size
    (`gamma_pts x (projection+1) x 8`, ~1.4x pickle overhead). Right margin?
 2. `HASQUI_MIN_FRAC = 0.90`, not the 0.95 you suggested: ELS is 0.9105 and the
@@ -91,6 +99,12 @@ timeout, or raise h_rt?**
       PLS, phastCons17 bins), merged after (PromF_TSS_BivProm, 2025 bins).
     - dadi: demography and cache under 2.3.0, DFE fits under 2.3.3.
     Both ~1e-6 on everything measured.
+
+22. dadi warned during our cache build: "Most negative value is -178.88 ... If
+    negative values are very negative (<-1), rerun with larger values for
+    --grids". Your cache has the same 11 unusable spectra, so this is
+    reproduced, not introduced - but dadi is suggesting grids larger than
+    1500 1520 1540.
 
 ## Reference: how much a DFE actually moves
 
