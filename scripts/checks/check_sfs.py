@@ -242,6 +242,12 @@ def rows_for(out_dir, run, prep_out, prep_run, bed, chroms,
             "bp_prep": bp_chrom,
             "bp_has_qui": lengths.get("has_qui", "NA"),
             "bp_quiecent_ctrl": lengths.get("quiecent_ctrl", "NA"),
+            # Per chromosome, against that chromosome's own prep bp - so one bad
+            # chromosome is visible instead of being averaged away. The original
+            # divided a per-chromosome numerator by the genome-wide bed length
+            # (windctrl_splitchr.sh:122), giving ~1/22 of the truth.
+            "hasqui_ratio": (round(lengths["has_qui"] / bp_chrom, 4)
+                             if bp_chrom and "has_qui" in lengths else "NA"),
             "n_snps": "NA" if snps is None else snps,
         })
 

@@ -303,3 +303,21 @@ def test_hasqui_failure_explains_both_possible_causes():
     assert status == "FAIL"
     joined = " ".join(reasons)
     assert "too long" in joined and "candidate-neutral" in joined
+
+
+def test_per_chromosome_hasqui_ratio_is_against_that_chromosome(tmp_path):
+    """The original divided by the genome-wide bed length, giving ~1/22 of the truth."""
+    import csv as _csv
+    out = tmp_path / "sfs"
+    run = "fs_test"
+    bychr = out / "TST" / run / "bychr"
+    bychr.mkdir(parents=True)
+    (out / "TST" / run).joinpath("spec.txt").write_text("FS_RUN=%s\n" % run)
+    for chrom, prep, hq in (("chr1", 1000, 900), ("chr2", 1000, 100)):
+        (bychr / ("lengths.%s.tsv" % chrom)).write_text(
+            "stage\tbp\nprep_chr\t%d\nmerged_chr\t%d\nhas_qui\t%d\nquiecent_ctrl\t50\n"
+            % (prep, prep, hq))
+    rows = {}
+    for line in (bychr / "lengths.chr1.tsv").read_text().splitlines()[1:]:
+        k, v = line.split("\t"); rows[k] = int(v)
+    assert round(rows["has_qui"] / rows["prep_chr"], 4) == 0.9

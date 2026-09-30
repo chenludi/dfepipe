@@ -67,14 +67,10 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
    marker (`large`: ~12 h estimated, 36 h requested). A killed build now FAILs
    with "raise SGE_CACHE_RT and re-run - a partial cache cannot be resumed".
    **Still on `highp`: keep it now the job is 20 min rather than 10 h?**
-1. `CACHE_MIN_SIZE_FRAC = 0.5` — fail a cache below half its expected size
-   (`gamma_pts x (projection+1) x 8`, ~1.4x pickle overhead). Right margin?
-2. `HASQUI_MIN_FRAC = 0.90`, not the 0.95 you suggested: ELS is 0.9105 and the
-   Methods say "at least 90%", so 0.95 fails a published analysis.
-3. Per-chromosome `hasqui_ratio`: the original divides a per-chromosome
-   numerator by the genome-wide bed length, so every `.track` value is ~1/22 of
-   the truth. Nothing reads it. We report genome-over-genome. Want the
-   per-chromosome column too?
+1. ~~`CACHE_MIN_SIZE_FRAC`~~ **RESOLVED: 0.5 kept.**
+2. ~~`HASQUI_MIN_FRAC`~~ **RESOLVED: 0.90 kept.**
+3. ~~Per-chromosome `hasqui_ratio`~~ **RESOLVED: added**, against that
+   chromosome's own prep bp, so one bad chromosome is visible.
 4. DFE run directories are keyed `<CACHE_RUN>-<pdf>-<DFE_RUN>`, which drops
    `CACHE_MARKER` — two markers under one `CACHE_RUN` would collide.
 5. Seven config keys the stages needed and `config/` lacks:
