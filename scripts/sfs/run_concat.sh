@@ -95,6 +95,23 @@ for bed in "$@"; do
   shortbase="${shortbase/nc_/}"
   outbase="${shortbase}_${CTRL_TAG}"
 
+  # Which chromosomes this bed actually has sites on, after prep. A chromosome
+  # the bed does not touch has no .fs because there was nothing to build one
+  # from, which is not an error; check_sfs.py draws the same line (SKIP for no
+  # intervals, FAIL for intervals but no .fs).
+  prep_bed="${OUT}/prep/${base}/${PREP_RUN}/s.nc_exHET_noq.${base}.bed"
+  declare -A has_sites=()
+  if [[ -s "$prep_bed" ]]; then
+    while read -r c; do
+      [[ -n "$c" ]] && has_sites["$c"]=1
+    done < <(cut -f1 "$prep_bed" | sort -u)
+  else
+    echo "concat: no prep bed for '${base}': ${prep_bed}" >&2
+    echo "        Every chromosome will be treated as expected, so a missing" >&2
+    echo "        .fs cannot be told from a chromosome the bed never touched." >&2
+    for c in "${chroms[@]}"; do has_sites["$c"]=1; done
+  fi
+
   d="${OUT}/sfs/${base}/${FS_RUN}"
   bychr="${d}/bychr"
   if [[ ! -d "$bychr" ]]; then
@@ -120,15 +137,20 @@ for bed in "$@"; do
       fi
     fi
 
-    fs_files=(); tab_files=(); missing_fs=(); missing_tab=()
+    fs_files=(); tab_files=(); missing_fs=(); missing_tab=(); no_sites=(); used=()
     for chrom in "${chroms[@]}"; do
+      if [[ -z "${has_sites[$chrom]:-}" ]]; then
+        no_sites+=("$chrom")
+        continue
+      fi
+
       # The .fs name ends in the VCF's own name, so it is globbed rather than
       # rebuilt from VCF_TMPL: the file on disk is the authority.
       f="$(ls -1 "${bychr}/smer.${set_name}.${chrom}.${bedstem}."*.fs 2>/dev/null | head -1 || true)"
       t="${bychr}/fsmut.smer.${set_name}.${chrom}.${bedstem}.${chrom}.tab"
 
       if [[ -n "$f" && -f "$f" && "$(wc -c < "$f")" -gt "$MIN_FS_BYTES" ]]; then
-        fs_files+=("$f")
+        fs_files+=("$f"); used+=("$chrom")
       else
         missing_fs+=("$chrom")
         if [[ -n "$f" && -f "$f" ]]; then
@@ -144,9 +166,15 @@ for bed in "$@"; do
       fi
     done
 
+    if [[ "${#no_sites[@]}" -ne 0 ]]; then
+      echo "concat: ${base} ${set_name}: no sites in the bed on ${no_sites[*]}," \
+           "so those chromosomes are not expected to have a spectrum" >&2
+    fi
+
     if [[ "${#missing_fs[@]}" -ne 0 || "${#missing_tab[@]}" -ne 0 ]]; then
-      echo "concat: ${base} ${set_name}: cannot concatenate, the genome-wide file" >&2
-      echo "        would silently be missing chromosomes." >&2
+      echo "concat: ${base} ${set_name}: cannot concatenate. These chromosomes" >&2
+      echo "        have sites in the bed but produced no usable spectrum, so" >&2
+      echo "        the genome-wide file would silently be missing them." >&2
       if [[ "${#missing_fs[@]}" -ne 0 ]]; then
         echo "        no usable .fs for:    ${missing_fs[*]}" >&2
       fi
@@ -154,8 +182,9 @@ for bed in "$@"; do
         echo "        no usable fsmut for:  ${missing_tab[*]}" >&2
       fi
       echo "        check_sfs below says, per chromosome, whether that is expected." >&2
-      echo "        To analyse a subset deliberately, set CHROMS to it; the" >&2
-      echo "        spectrum is then labelled with the chromosomes it holds." >&2
+      echo "        To analyse a subset deliberately, set CHROMS to it. Note" >&2
+      echo "        the output is still named chrs_1t22, as the original named" >&2
+      echo "        it; concat_chroms.tsv beside it records what went in." >&2
       failed=1
       continue
     fi
@@ -174,6 +203,15 @@ for bed in "$@"; do
     mv "${tmp}/$(basename "$out_fs")"  "$out_fs"
     mv "${tmp}/$(basename "$out_tab")" "$out_tab"
     rm -rf "$tmp"
+
+    # The file name says chrs_1t22 whatever CHROMS was, so record what actually
+    # went in. Without this a subset run is indistinguishable from a full one.
+    manifest="${d}/concat_chroms.tsv"
+    [[ -s "$manifest" ]] || printf 'set\tn_chroms\tchroms\tno_sites\n' > "$manifest"
+    printf '%s\t%d\t%s\t%s\n' "$set_name" "${#fs_files[@]}" \
+      "$(IFS=,; echo "${used[*]}")" \
+      "$([[ "${#no_sites[@]}" -eq 0 ]] && echo NA || (IFS=,; echo "${no_sites[*]}"))" \
+      >> "$manifest"
     echo "concat: wrote ${out_fs}"
     echo "concat: wrote ${out_tab}"
   done
