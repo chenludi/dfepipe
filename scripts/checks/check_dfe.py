@@ -75,6 +75,31 @@ OPTS_INFIX = ".InferDFE.opts."
 #   not_run     the array task never reached this starting point, usually
 #               because the task itself hit h_rt.
 OUTCOME_KINDS = ("bestfit", "no_bestfit", "error", "timeout", "not_run")
+# How bad each one is, and what the user does about it. run_dfe.sh writes the
+# same word into the log's severity column.
+#
+#   ok             a best fit that also converged
+#   fail_optimize  a best fit that never converged, or no best fit at all: the
+#                  optimiser did not settle, so widen or shift the bounds or
+#                  change the starting points
+#   rerun          RESUME=1 finishes it
+#   broken         fix the setup first; re-running changes nothing
+SEVERITIES = ("ok", "fail_optimize", "rerun", "broken")
+
+
+def severity_counts(outcomes, n_converged):
+    """{severity: count} from a count_outcomes() mapping.
+
+    `n_converged` is the number of .bestfits carrying a converged block, so
+    n_bestfit - n_converged is a fit the optimiser never settled on.
+    """
+    ok = min(n_converged, outcomes["n_bestfit"])
+    return {
+        "ok": ok,
+        "fail_optimize": (outcomes["n_bestfit"] - ok) + outcomes["n_no_bestfit"],
+        "rerun": outcomes["n_timeout"] + outcomes["n_not_run"],
+        "broken": outcomes["n_error"],
+    }
 # CLI defaults, read from pipeline.conf; the caller passes the configured
 # values through --max-notrun-frac and friends.
 DFE_MAX_NOTRUN_FRAC = conf.get_float("DFE_MAX_NOTRUN_FRAC", 0.20)
@@ -477,6 +502,12 @@ def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
         row["n_" + kind] = outcomes["n_" + kind] if outcomes else "NA"
         row["frac_" + kind] = (round(outcomes["frac_" + kind], 4)
                                if outcomes else "NA")
+    # The same counts grouped by how bad they are, which is the view to read
+    # first: ok / fail_optimize / rerun / broken.
+    sev = (severity_counts(outcomes, n_converged_block or 0)
+           if outcomes else None)
+    for name in SEVERITIES:
+        row["n_" + name] = sev[name] if sev else "NA"
     # The fitted parameters, whichever this pdf has, straight from large_ll.txt.
     if header and rows:
         for key in header:

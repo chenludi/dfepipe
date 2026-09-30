@@ -446,3 +446,43 @@ def test_outcomes_absent_is_not_judged():
     """The `neu` row has no starting points at all."""
     status, reasons = assess(outcomes=None)
     assert status == "PASS" and reasons == []
+
+
+# ------------------------------------------------------------- severity view --
+
+from check_dfe import severity_counts, SEVERITIES           # noqa: E402
+
+
+def test_severity_groups_unconverged_fits_with_no_bestfit():
+    """A fit that never converged is the same problem as no fit at all: the
+    optimiser did not settle, so the bounds or the starting points are wrong."""
+    c = severity_counts(outcomes(190, 150, 40, 0, 0), n_converged=89)
+    assert c == {"ok": 89, "fail_optimize": 61 + 40, "rerun": 0, "broken": 0}
+
+
+def test_severity_puts_timeout_and_not_run_together():
+    """Both are finished by RESUME=1, so they share a severity."""
+    c = severity_counts(outcomes(100, 50, 0, 20, 30), n_converged=50)
+    assert c["rerun"] == 50 and c["ok"] == 50
+
+
+def test_severity_error_is_its_own_class():
+    """Re-running changes nothing until the setup is fixed."""
+    c = severity_counts(outcomes(10, 0, 0, 0, 0, error=10), n_converged=0)
+    assert c == {"ok": 0, "fail_optimize": 0, "rerun": 0, "broken": 10}
+
+
+def test_severity_counts_cover_every_starting_point():
+    o = outcomes(210, 151, 0, 0, 59)
+    c = severity_counts(o, n_converged=120)
+    assert sum(c.values()) == o["n_starting_points"]
+
+
+def test_severity_names_match_the_shell_helper():
+    """severity_of() in run_dfe.sh must use the same four words."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    text = (root / "scripts" / "dfe" / "run_dfe.sh").read_text()
+    body = text.split("severity_of() {", 1)[1].split("\n}", 1)[0]
+    for name in SEVERITIES:
+        assert name in body, name

@@ -35,6 +35,13 @@
 # it is ported exactly. It is in the report.
 #
 # Differences from the original, all deliberate:
+#   * only the Poisson model-vs-data figure is drawn. The original also made
+#     the multinomial one (plot_converge_dfe_0430.py:488), which rescales the
+#     model so its total matches the data's. Its own header says why: it dates
+#     from before the 2025/03/18 theta_test fix and made the residuals readable
+#     while theta was wrong. theta is right now, and for a DFE the total is a
+#     prediction - selection is what reduces it - so rescaling it away hides
+#     the thing being tested.
 #   * every pdf in PDFS is handled. The original hit a bare `exit 1`
 #     (piperef_stddfe_8_plotdfe.sh:105-107), and so did any other pdf.
 #   * the mutation-load calculation (plot_mutload_single.py, :112-119) is not
@@ -44,8 +51,8 @@
 #   * figure names: `ll_<param>_all.pdf` (every converged fit) and
 #     `ll_<param>_top.pdf` (the fits above the cutoff). The original put the
 #     cutoff value in the file name; it is in spec.txt instead. The per-fit
-#     figures are `sfs_rank<k>.pdf` / `sfs_rank<k>_poisson.pdf` with the model
-#     spectrum `model_sfs_rank<k>.fs`, so rank 1 has a stable name for
+#     figures are `sfs_rank<k>_poisson.pdf` with the model spectrum
+#     `model_sfs_rank<k>.fs`, so rank 1 has a stable name for
 #     check_dfe.py; the original named them after rounded parameter values,
 #     which collided and silently overwrote several of the top ten.
 #   * the cutoff index is clamped to the last available fit. The original
@@ -376,12 +383,6 @@ for rank, (filename, values) in enumerate(sorted_rows[:plot_top], start=1):
     label = "%s rank %d  ll:%s  %s" % (
         pdf, rank, values[ll_name],
         "; ".join("%s:%s" % (n, v) for n, v in zip(param_names, popt)))
-
-    fig = plt.figure()
-    fig.clear()
-    dadi.Plotting.plot_1d_comp_multinom(model_sfs, sfs_test)
-    plt.title(label, fontsize=7)
-    save(fig, "sfs_rank%d" % rank)
 
     fig = plt.figure()
     fig.clear()

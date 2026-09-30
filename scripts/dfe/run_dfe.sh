@@ -342,9 +342,37 @@ fi
 # RESUME re-run adds rows, and check_dfe.py takes the LAST row for a marker.
 # Concurrent array tasks share the file, so the append is serialised with flock
 # where flock exists (one write of one short line otherwise).
-log_outcome() {  # <logfile> <marker> <outcome> <seconds> <note>
+# How bad is an outcome, and what does the user do about it? The severity is
+# what makes the log scannable; the outcome says only what happened.
+#
+#   ok             a best fit that also converged - nothing to do
+#   fail_optimize  a best fit that never converged, or no best fit at all. The
+#                  optimiser did not settle: widen or shift the parameter
+#                  bounds, or give it different starting points.
+#   rerun          timeout or never reached. RESUME=1 finishes it; for a
+#                  timeout consider raising DFE_TIMEOUT too.
+#   broken         dadi-cli could not start. Re-running changes nothing until
+#                  the cache path, --demo-popt or the environment is fixed.
+severity_of() {  # <outcome> <converged yes|no|NA>
+  case "$1" in
+    bestfit)     [[ "$2" == "yes" ]] && echo ok || echo fail_optimize ;;
+    no_bestfit)  echo fail_optimize ;;
+    timeout|not_run) echo rerun ;;
+    *)           echo broken ;;
+  esac
+}
+
+# Did dadi-cli write a "# Converged results" block? That needs NUM_CONVERGENCE
+# results agreeing within delta, and is much stricter than writing the file.
+converged_of() {  # <bestfits path>
+  [[ -s "$1" ]] || { echo NA; return; }
+  if grep -q '^# Converged results' "$1"; then echo yes; else echo no; fi
+}
+
+log_outcome() {  # <logfile> <marker> <outcome> <converged> <seconds> <note>
   local f="$1"; shift
-  local line; line="$(printf '%s\t%s\t%s\t%s' "$@")"
+  local line; line="$(printf '%s\t%s\t%s\t%s\t%s\t%s' "$1" "$2" "$3" \
+                             "$(severity_of "$2" "$3")" "$4" "$5")"
   if command -v flock >/dev/null 2>&1; then
     printf '%s\n' "$line" | flock "${f}.lock" bash -c 'cat >> "$1"' _ "$f"
   else
@@ -356,13 +384,23 @@ log_outcome() {  # <logfile> <marker> <outcome> <seconds> <note>
 # Each command line is run on its own with a timeout, as
 # submit_dadi-cli_dfebash.sh:66-81 does: a starting point that wanders into a
 # numerically impossible region must not take the rest of the pack down with it.
-n_done=0; n_skipped=0; n_failed=0
+n_done=0; n_skipped=0; n_failed=0; n_deferred=0
+
+# DFE_TIMEOUT as plain seconds, for the deadline arithmetic below.
+case "$DFE_TIMEOUT" in
+  *h) timeout_seconds=$(( ${DFE_TIMEOUT%h} * 3600 )) ;;
+  *m) timeout_seconds=$(( ${DFE_TIMEOUT%m} * 60 )) ;;
+  *s) timeout_seconds=${DFE_TIMEOUT%s} ;;
+  *)  timeout_seconds=$DFE_TIMEOUT ;;
+esac
 for i in "${!beds[@]}"; do
   d="${dirs[$i]}"
   outlog="${d}/fit_outcomes.tsv"
   # noclobber makes the header write O_EXCL, so two array tasks racing to
   # create the log cannot truncate each other's rows.
-  ( set -o noclobber; printf 'marker\toutcome\tseconds\tnote\n' > "$outlog" ) 2>/dev/null || true
+  ( set -o noclobber
+    printf 'marker\toutcome\tconverged\tseverity\tseconds\tnote\n' > "$outlog"
+  ) 2>/dev/null || true
   if [[ -n "$pack_mode" ]]; then
     packs=("${d}/${pack_mode}")
     [[ -s "${packs[0]}" ]] || {
@@ -387,7 +425,21 @@ for i in "${!beds[@]}"; do
       if [[ -n "$prefix" ]]; then marker="$(basename "$prefix")"; fi
       if [[ -n "$prefix" && -s "${prefix}.InferDFE.bestfits" && "${FORCE:-0}" != "1" ]]; then
         n_skipped=$((n_skipped + 1))
-        log_outcome "$outlog" "$marker" bestfit 0 "already present, not re-run"
+        log_outcome "$outlog" "$marker" bestfit \
+                    "$(converged_of "${prefix}.InferDFE.bestfits")" 0 \
+                    "already present, not re-run"
+        continue
+      fi
+
+      # Stop cleanly rather than be killed part-way. DFE_TASK_DEADLINE is the
+      # epoch second this task's h_rt expires (worker_dfe.sh sets it); with
+      # less than DFE_TIMEOUT left, the next fit cannot finish, so leave it for
+      # RESUME=1 instead of starting a fit the scheduler will kill.
+      if [[ -n "${DFE_TASK_DEADLINE:-}" ]] \
+         && (( $(date +%s) + timeout_seconds > DFE_TASK_DEADLINE )); then
+        n_deferred=$((n_deferred + 1))
+        log_outcome "$outlog" "$marker" not_run NA 0 \
+                    "under ${DFE_TIMEOUT} of h_rt left; RESUME=1 to finish"
         continue
       fi
 
@@ -410,15 +462,17 @@ for i in "${!beds[@]}"; do
       # ran one optimisation. The exit status goes in the note either way.
       if [[ -n "$marker" ]]; then
         if [[ -s "${prefix}.InferDFE.bestfits" ]]; then
-          log_outcome "$outlog" "$marker" bestfit "$((SECONDS - t0))" "exit=${rc}"
+          log_outcome "$outlog" "$marker" bestfit \
+                      "$(converged_of "${prefix}.InferDFE.bestfits")" \
+                      "$((SECONDS - t0))" "exit=${rc}"
         elif [[ "$rc" -eq 124 ]]; then
-          log_outcome "$outlog" "$marker" timeout "$((SECONDS - t0))" \
+          log_outcome "$outlog" "$marker" timeout NA "$((SECONDS - t0))" \
                       "killed after ${DFE_TIMEOUT}"
         elif compgen -G "${prefix}.InferDFE.opts.*" >/dev/null; then
-          log_outcome "$outlog" "$marker" no_bestfit "$((SECONDS - t0))" \
+          log_outcome "$outlog" "$marker" no_bestfit NA "$((SECONDS - t0))" \
                       "exit=${rc}, optimised but no usable result"
         else
-          log_outcome "$outlog" "$marker" error "$((SECONDS - t0))" \
+          log_outcome "$outlog" "$marker" error NA "$((SECONDS - t0))" \
                       "exit=${rc}, no .opts: never started optimising"
         fi
       fi
@@ -426,8 +480,12 @@ for i in "${!beds[@]}"; do
   done
 done
 
-echo "run_dfe: ${pdf}: ${n_done} fitted, ${n_skipped} already present," \
-     "${n_failed} failed or timed out"
+echo "run_dfe: ${pdf}: ${n_done} run, ${n_skipped} already present," \
+     "${n_failed} failed or timed out, ${n_deferred} left for RESUME=1"
+if [[ "$n_deferred" -gt 0 ]]; then
+  echo "run_dfe: ${n_deferred} starting point(s) were not begun because under" \
+       "${DFE_TIMEOUT} of this task's h_rt remained. Re-run with RESUME=1." >&2
+fi
 
 # A pack in which nothing at all worked is a failure; individual starting points
 # failing is normal and expected, which is why the original let them pass.

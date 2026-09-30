@@ -46,5 +46,20 @@ bed="${_beds[$idx]}"
 
 echo "worker_dfe: host=$(hostname) job=${JOB_ID:-none} task=${SGE_TASK_ID}" \
      "pdf=${DFE_PDF} bed=$(basename "$bed") pack=${pack} started $(date)"
+
+# When this task's h_rt runs out, as an epoch second. run_dfe.sh uses it to stop
+# before a fit it cannot finish, rather than have the scheduler kill one
+# part-way: PACKNUMBER x DFE_TIMEOUT can exceed h_rt, so that is not a rare
+# case. Best effort - without SGE_DFE_RT the guard is simply off.
+if [[ -n "${SGE_DFE_RT:-}" ]]; then
+  IFS=: read -r _h _m _s <<< "$SGE_DFE_RT"
+  _rt=$(( 10#${_h:-0} * 3600 + 10#${_m:-0} * 60 + 10#${_s:-0} ))
+  if (( _rt > 0 )); then
+    export DFE_TASK_DEADLINE=$(( $(date +%s) + _rt - 300 ))   # 5 min of margin
+    echo "worker_dfe: h_rt=${SGE_DFE_RT}; will start no fit after" \
+         "$(date -d "@${DFE_TASK_DEADLINE}" 2>/dev/null || echo "+${_rt}s")"
+  fi
+fi
+
 DFE_PACK="$pack" bash "${REPO_DIR}/scripts/dfe/run_dfe.sh" "$DFE_PDF" "$bed"
 echo "worker_dfe: ${pack} finished $(date)"

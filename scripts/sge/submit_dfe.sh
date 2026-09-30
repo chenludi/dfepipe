@@ -47,6 +47,23 @@ ensure_scheduler
 : "${CACHE_MARKER:?CACHE_MARKER not set}"   # part of the run key: two markers must not share a directory
 : "${DFE_RUN:?DFE_RUN not set}"
 : "${SGE_DFE_RT:?SGE_DFE_RT not set}"
+
+# PACKNUMBER fits of up to DFE_TIMEOUT each can outlast h_rt - 50 x 60m against
+# 23:50 in the shipped config. The worker's deadline guard means the overflow is
+# recorded as not_run and finished by RESUME=1 rather than killed part-way, but
+# say so up front so the extra pass is expected, not a surprise.
+_rt_h=${SGE_DFE_RT%%:*}
+case "$DFE_TIMEOUT" in
+  *h) _to_min=$(( ${DFE_TIMEOUT%h} * 60 )) ;;
+  *m) _to_min=${DFE_TIMEOUT%m} ;;
+  *)  _to_min=60 ;;
+esac
+if (( PACKNUMBER * _to_min > 10#${_rt_h} * 60 )); then
+  echo "submit_dfe: note - ${PACKNUMBER} fits x ${DFE_TIMEOUT} could need" \
+       "$(( PACKNUMBER * _to_min / 60 ))h but h_rt is ${SGE_DFE_RT}. Slow packs" \
+       "will stop early and report not_run; re-run with RESUME=1 to finish," \
+       "or lower PACKNUMBER to $(( 10#${_rt_h} * 60 / _to_min )) for one pass." >&2
+fi
 : "${SGE_DFE_MEM:?SGE_DFE_MEM not set}"
 : "${SGE_DFE_PE:?SGE_DFE_PE not set}"
 
@@ -78,6 +95,9 @@ mkdir -p "$log_dir"
 job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},FS_RUN=${FS_RUN},DEMO_RUN=${DEMO_RUN}"
 job_env="${job_env},DEMO_MODEL=${DEMO_MODEL},CACHE_RUN=${CACHE_RUN}"
 job_env="${job_env},DFE_RUN=${DFE_RUN},DFE_PDF=${pdf}"
+# The worker turns h_rt into a deadline so run_dfe.sh can stop before a fit
+# it cannot finish, instead of having one killed part-way.
+job_env="${job_env},SGE_DFE_RT=${SGE_DFE_RT}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 [[ -n "${RESUME:-}" ]] && job_env="${job_env},RESUME=${RESUME}"
 [[ -n "${DFE_CACHE_FILE:-}" ]] && job_env="${job_env},DFE_CACHE_FILE=${DFE_CACHE_FILE}"
