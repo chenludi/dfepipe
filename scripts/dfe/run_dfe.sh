@@ -382,7 +382,8 @@ for i in "${!beds[@]}"; do
       # The output prefix is the last field of --output-prefix; its .bestfits is
       # what marks this starting point finished.
       prefix="$(awk '{for (k = 1; k < NF; k++) if ($k == "--output-prefix") print $(k+1)}' <<< "$cmd")"
-      marker="$(basename "${prefix:-}")"
+      marker=""
+      if [[ -n "$prefix" ]]; then marker="$(basename "$prefix")"; fi
       if [[ -n "$prefix" && -s "${prefix}.InferDFE.bestfits" && "${FORCE:-0}" != "1" ]]; then
         n_skipped=$((n_skipped + 1))
         log_outcome "$outlog" "$marker" converged 0 "already present, not re-run"

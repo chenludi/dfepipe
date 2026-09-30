@@ -78,6 +78,9 @@ source "${REPO_DIR}/config/env.sh"
 : "${CTRL_TAG:?CTRL_TAG not set}"
 : "${DFE_BINS:?DFE_BINS not set}"
 : "${NUM_CONVERGENCE:?NUM_CONVERGENCE not set}"
+: "${DFE_MAX_NOTRUN_FRAC:?DFE_MAX_NOTRUN_FRAC not set}"
+: "${DFE_MIN_CONVERGED_FRAC:?DFE_MIN_CONVERGED_FRAC not set}"
+: "${DFE_MIN_CONVERGED_N:?DFE_MIN_CONVERGED_N not set}"
 : "${RESID_RARE_MAX_COUNT:?RESID_RARE_MAX_COUNT not set}"
 : "${RESID_MAX_RARE_WARN:?RESID_MAX_RARE_WARN not set}"
 : "${RESID_MAX_RARE_FAIL:?RESID_MAX_RARE_FAIL not set}"
@@ -463,7 +466,10 @@ if ! python3 "${REPO_DIR}/scripts/checks/check_dfe.py" \
        --bulk-bias-warn "${RESID_BULK_BIAS_WARN}" \
        --rest-over-rare-min "${RESID_REST_OVER_RARE_MIN}" \
        --g2-warn "${G2_PER_SNP_WARN}" --g2-fail "${G2_PER_SNP_FAIL}" \
-       --num-convergence "${NUM_CONVERGENCE}" "$@"; then
+       --num-convergence "${NUM_CONVERGENCE}" \
+       --max-notrun-frac "${DFE_MAX_NOTRUN_FRAC}" \
+       --min-converged-frac "${DFE_MIN_CONVERGED_FRAC}" \
+       --min-converged-n "${DFE_MIN_CONVERGED_N}" "$@"; then
   echo "WARNING: check_dfe.py failed; the dfe output above is unaffected." >&2
   echo "         Inspect large_ll.txt and sfs_rank1.pdf by hand before" >&2
   echo "         trusting this run." >&2
