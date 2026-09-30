@@ -7,56 +7,45 @@
  def get_dadi_pdf(pdf):
      """
      Description:
-@@ -27,6 +26,13 @@
+@@ -27,6 +26,11 @@
          func = DFE.PDFs.lognormal
      elif pdf == "normal":
          func = DFE.PDFs.normal
 +    # Add line 31
 +    elif pdf == "neugamma":
 +        func = DFE.PDFs.neugamma
-+    elif pdf == "neugammazero":
-+        func = DFE.PDFs.neugammazero
 +    elif pdf == "gammaneud1":
 +        func = DFE.PDFs.gammaneud1
      elif "mixture" in pdf:
          func = DFE.mixture
      else:
-@@ -69,6 +75,12 @@
+@@ -69,6 +73,10 @@
          params = ["log_mu", "log_sigma", "rho", "w"]
      elif pdf == "normal":
          params = ["mu", "sigma"]
 +    elif pdf == "neugamma":
-+        params = ["shape", "scale", "pneu"]
-+    elif pdf == "neugammazero":
 +        params = ["shape", "scale", "pneu"]
 +    elif pdf == "gammaneud1":
 +        params = ["shape", "scale", "pneu", "pdele", "Na", "sneu", "sdeles", "sdelel"]
      else:
          raise Exception("Probability density function " + pdf + " is not available!")
  
-@@ -88,6 +100,9 @@
+@@ -88,6 +96,8 @@
      print("- gamma")
      print("- lognormal")
      print("- normal")
 +    print("- neugamma")
-+    print("- neugammazero")
 +    print("- gammaneud1")
      print("- mixture")
  
  
-@@ -139,6 +154,23 @@
+@@ -139,6 +149,17 @@
  
          params = [mu, sigma]
      """
 +    neugamma = """
 +        neuGamma is a mixture of probability density function.
 +        pneu proportion with selection coefficient <10^-4 and assume to be neutral.
-+        params = [alpha, beta, pneu] = [shape, scale, pneu]
-+    """
-+    neugammazero = """
-+        neugammazero is a mixture of probability density function.
-+        pneu proportion with selection coefficient <10^-4 and assume to be neutral.
-+        gamma distribution only for gamma > 1e-4.
 +        params = [alpha, beta, pneu] = [shape, scale, pneu]
 +    """
 +    gammaneud1 = """
@@ -68,14 +57,12 @@
      mixture = """
          Weighted summation of 1d and 2d distributions that share parameters.
          The 1d distribution is equivalent to assuming selection coefficients are
-@@ -166,9 +198,16 @@
+@@ -166,9 +187,14 @@
          print("- lognormal:\n" + lognormal)
      elif pdf_name == "normal":
          print("- normal:\n" + normal)
 +    elif pdf_name == "neugamma":
 +        print("- neugamma:\n" + neugamma)
-+    elif pdf_name == "neugammazero":
-+        print("- neugammazero:\n" + neugammazero)
 +    elif pdf_name == "gammaneud1":
 +        print("- gammaneud1:\n" + gammaneud1)
      elif pdf_name == "mixture":

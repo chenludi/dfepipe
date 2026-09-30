@@ -35,7 +35,7 @@
 # it is ported exactly. It is in the report.
 #
 # Differences from the original, all deliberate:
-#   * `neugammazero` is handled. The original hit a bare `exit 1`
+#   * every pdf in PDFS is handled. The original hit a bare `exit 1`
 #     (piperef_stddfe_8_plotdfe.sh:105-107), and so did any other pdf.
 #   * the mutation-load calculation (plot_mutload_single.py, :112-119) is not
 #     ported. It is out of scope and the original's own header flags it as
@@ -104,10 +104,10 @@ case "$pdf" in
     echo "run_bestdfe: pdf 'neu' has nothing to pick: its single likelihood is" >&2
     echo "      written by scripts/dfe/run_fitneu.sh, which runs its own check." >&2
     exit 2 ;;
-  gamma|neugamma|neugammazero) ;;
+  gamma|neugamma) ;;
   *)
     echo "run_bestdfe: pdf '${pdf}' is not supported." >&2
-    echo "      Supported: gamma, neugamma, neugammazero (and neu, via" >&2
+    echo "      Supported: gamma, neugamma (and neu, via" >&2
     echo "      run_fitneu.sh). PDFS is currently '${PDFS:-unset}'." >&2
     exit 2 ;;
 esac
@@ -228,12 +228,11 @@ if len(bins) < 2:
 PDF_FUNCS = {
     "gamma": getattr(DFE.PDFs, "gamma", None),
     "neugamma": getattr(DFE.PDFs, "neugamma", None),
-    "neugammazero": getattr(DFE.PDFs, "neugammazero", None),
 }
 pdf_func = PDF_FUNCS.get(pdf)
 if pdf_func is None:
-    die("dadi.DFE.PDFs has no '%s'. gamma is stock; neugamma and neugammazero "
-        "come from setup/patches/dadi_DFE_PDFs.patch - run setup/setup.sh" % pdf)
+    die("dadi.DFE.PDFs has no '%s'. gamma is stock; neugamma comes from "
+        "setup/patches/dadi_DFE_PDFs.patch - run setup/setup.sh" % pdf)
 
 mutation_test_diploid = getul2(fsmutt)
 if mutation_test_diploid <= 0:

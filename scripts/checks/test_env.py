@@ -50,11 +50,11 @@ def check_versions():
 def check_pdfs_registered():
     """The patch's whole purpose: the custom pdfs are dispatchable by name."""
     from dadi_cli.Pdfs import get_dadi_pdf
-    missing = [n for n in ("neugamma", "neugammazero", "gammaneud1")
+    missing = [n for n in ("neugamma", "gammaneud1")
                if get_dadi_pdf(n) is None]
     if missing:
         raise AssertionError(f"not registered in dadi-cli: {', '.join(missing)}")
-    return "neugamma, neugammazero, gammaneud1 all dispatchable"
+    return "neugamma, gammaneud1 both dispatchable"
 
 
 def check_neugamma_numeric():
@@ -73,19 +73,6 @@ def check_neugamma_numeric():
     if not np.allclose(got, want, rtol=1e-10, atol=0):
         raise AssertionError(f"neugamma returned {got}, expected {want}")
     return "additive mixture, neutral spike below 1e-4"
-
-
-def check_neugammazero_is_disjoint():
-    """neugammazero renormalises instead of adding: the two must differ."""
-    import numpy as np
-    from dadi.DFE import PDFs
-
-    xx = np.array(NEUGAMMA_X)
-    a = np.asarray(PDFs.neugamma(xx, NEUGAMMA_PARAMS), dtype=float)
-    b = np.asarray(PDFs.neugammazero(xx, NEUGAMMA_PARAMS), dtype=float)
-    if np.allclose(a, b):
-        raise AssertionError("neugammazero is identical to neugamma; the patch is wrong")
-    return "distinct from neugamma, as intended"
 
 
 def check_residual_uses_dadi():
@@ -126,7 +113,6 @@ def main():
     check("versions", check_versions)
     check("custom pdfs registered", check_pdfs_registered)
     check("neugamma numerically correct", check_neugamma_numeric)
-    check("neugammazero distinct", check_neugammazero_is_disjoint)
     check("dadi-cli lists neugamma", check_cli_runs(a.prefix))
     check("residuals.py uses dadi", check_residual_uses_dadi)
     check("bedtools on PATH", check_tool("bedtools"))

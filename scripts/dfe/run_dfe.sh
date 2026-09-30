@@ -4,7 +4,7 @@
 #
 #   bash scripts/dfe/run_dfe.sh <pdf> <bed> [bed...]
 #
-# <pdf> is one of PDFS other than `neu` (gamma, neugamma, neugammazero); `neu`
+# <pdf> is one of PDFS other than `neu` (gamma, neugamma); `neu`
 # has no parameters to fit and is scripts/dfe/run_fitneu.sh. <bed> is the
 # ORIGINAL bed, the same argument every earlier stage took.
 #
@@ -16,7 +16,7 @@
 #
 #   shape0 over num_bins log-spaced values from <PDF>_LOWER[0] to <PDF>_UPPER[0]
 #   scale0 likewise from <PDF>_LOWER[1] to <PDF>_UPPER[1]
-#   pneu   over num_bins LINEARLY spaced values (neugamma/neugammazero only)
+#   pneu   over num_bins linearly spaced values (neugamma only)
 #   keep a combination when 2e-6*Na <= shape0*scale0 <= 2*0.5*Na, so the mean
 #   |gamma| of the starting DFE lies inside the cache's gamma range
 #   the surviving combinations are numbered 0..N-1 in that order, and every
@@ -45,9 +45,11 @@
 #     fields) is replaced by spec.txt, which every stage in this package writes.
 #   * every starting point's outcome is appended to fit_outcomes.tsv
 #     (marker / outcome / seconds / note) as its fit finishes: `fitted` if it
-#     wrote a .bestfits, else `timeout` or `no_likelihood`. check_dfe.py reads
-#     it, derives the fourth outcome `not_run`, and counts how many of the
-#     fitted ones actually carry a converged block.
+#     wrote a .bestfits, `timeout` if the clock killed it, `crashed` if it
+#     exited without writing any .opts file (a technical fault), else
+#     `no_optimum` - it optimised but never reached a usable likelihood.
+#     check_dfe.py reads the log, derives `not_run` for the markers the array
+#     never reached, and counts how many fits actually converged.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,9 +80,6 @@ source "${REPO_DIR}/config/env.sh"
 : "${NEUGAMMA_LOWER:?NEUGAMMA_LOWER not set}"
 : "${NEUGAMMA_UPPER:?NEUGAMMA_UPPER not set}"
 : "${NEUGAMMA_BINS:?NEUGAMMA_BINS not set}"
-: "${NEUGAMMAZERO_LOWER:?NEUGAMMAZERO_LOWER not set}"
-: "${NEUGAMMAZERO_UPPER:?NEUGAMMAZERO_UPPER not set}"
-: "${NEUGAMMAZERO_BINS:?NEUGAMMAZERO_BINS not set}"
 : "${DFE_TIMEOUT:?DFE_TIMEOUT not set}"
 
 if [[ $# -lt 2 ]]; then
@@ -89,8 +88,8 @@ if [[ $# -lt 2 ]]; then
 fi
 pdf="$1"; shift
 
-# Every pdf in PDFS must be handled or named in the refusal. The original fell
-# through to a bare `exit 1` for neugammazero (piperef_stddfe_8_plotdfe.sh:106).
+# Every pdf in PDFS must be handled or named in the refusal. See
+# todo/toimplement_pdf_neugammazero.md for the one that was removed.
 case "$pdf" in
   neu)
     echo "run_dfe: pdf 'neu' has no parameters to fit." >&2
@@ -98,10 +97,9 @@ case "$pdf" in
     exit 2 ;;
   gamma)         lower="$GAMMA_LOWER";         upper="$GAMMA_UPPER";         nbins="$GAMMA_BINS" ;;
   neugamma)      lower="$NEUGAMMA_LOWER";      upper="$NEUGAMMA_UPPER";      nbins="$NEUGAMMA_BINS" ;;
-  neugammazero)  lower="$NEUGAMMAZERO_LOWER";  upper="$NEUGAMMAZERO_UPPER";  nbins="$NEUGAMMAZERO_BINS" ;;
   *)
     echo "run_dfe: pdf '${pdf}' is not supported." >&2
-    echo "      Supported: gamma, neugamma, neugammazero (and neu, via" >&2
+    echo "      Supported: gamma, neugamma (and neu, via" >&2
     echo "      run_fitneu.sh). PDFS is currently '${PDFS}'. To add a pdf," >&2
     echo "      give it a <PDF>_LOWER / <PDF>_UPPER / <PDF>_BINS triple and a" >&2
     echo "      branch here, and patch dadi/dadi-cli to know the name." >&2
@@ -245,7 +243,7 @@ def valid_p0s(pdf, lo, hi, gamma0_range, nbins):
     """
     shape0s = np.logspace(np.log10(lo[0]), np.log10(hi[0]), num=nbins)
     scale0s = np.logspace(np.log10(lo[1]), np.log10(hi[1]), num=nbins)
-    if pdf in ("neugamma", "neugammazero"):
+    if pdf == "neugamma":
         pneus = np.linspace(lo[2], hi[2], num=nbins)
         return [(a, b, p) for a, b, p in product(shape0s, scale0s, pneus)
                 if gamma0_range[0] <= a * b <= gamma0_range[1]]
@@ -257,7 +255,7 @@ def valid_p0s(pdf, lo, hi, gamma0_range, nbins):
 
 lower = [float(v) for v in lower_s.split()]
 upper = [float(v) for v in upper_s.split()]
-want = 3 if pdf in ("neugamma", "neugammazero") else 2
+want = 3 if pdf == "neugamma" else 2
 if len(lower) != want or len(upper) != want:
     die("%s needs %d bounds, got %d lower and %d upper"
         % (pdf, want, len(lower), len(upper)))
@@ -407,18 +405,22 @@ for i in "${!beds[@]}"; do
         n_failed=$((n_failed + 1))
       fi
 
-      # A non-empty .bestfits is the fit; rc 124 is the timeout kill; anything
-      # else that left no .bestfits ran its optimisations without ever getting
-      # a likelihood. `rc` in the note keeps a real crash distinguishable.
+      # A non-empty .bestfits is the fit. Exit 124 is the timeout kill. With no
+      # .bestfits and no .opts either, dadi-cli never started optimising, which
+      # is a technical fault; with .opts it optimised and reached no usable
+      # likelihood. The exit status goes in the note either way.
       if [[ -n "$marker" ]]; then
         if [[ -s "${prefix}.InferDFE.bestfits" ]]; then
-          log_outcome "$outlog" "$marker" fitted "$((SECONDS - t0))" "rc=${rc}"
+          log_outcome "$outlog" "$marker" fitted "$((SECONDS - t0))" "exit=${rc}"
         elif [[ "$rc" -eq 124 ]]; then
           log_outcome "$outlog" "$marker" timeout "$((SECONDS - t0))" \
                       "killed after ${DFE_TIMEOUT}"
+        elif compgen -G "${prefix}.InferDFE.opts.*" >/dev/null; then
+          log_outcome "$outlog" "$marker" no_optimum "$((SECONDS - t0))" \
+                      "exit=${rc}, optimised but no usable likelihood"
         else
-          log_outcome "$outlog" "$marker" no_likelihood "$((SECONDS - t0))" \
-                      "rc=${rc}, no .bestfits"
+          log_outcome "$outlog" "$marker" crashed "$((SECONDS - t0))" \
+                      "exit=${rc}, no .opts: never started optimising"
         fi
       fi
     done < "$pack"

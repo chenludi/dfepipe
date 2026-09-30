@@ -1,14 +1,13 @@
 --- dadi/DFE/PDFs.py.original
 +++ dadi/DFE/PDFs.py
-@@ -1,3 +1,7 @@
+@@ -1,3 +1,6 @@
 +#2024/11/25 ChenluDi: Added gammaneud1 distribution.
-+#2024/11/18 ChenluDi: Rewrite how to get the pdf of gamma for neugamma and neugammazero distribution.
-+#2024/11/18 ChenluDi: Added neugammazero distribution (L41-L51)
++#2024/11/18 ChenluDi: Rewrite how to get the pdf of gamma for neugamma.
 +#2024/01/16 ChenluDi: Added neugamma distribution (L28-L38)
  """
  Probability density functions for defining DFEs.
  """
-@@ -24,6 +28,88 @@
+@@ -24,6 +27,65 @@
      alpha, beta = params
      return ssd.gamma.pdf(xx, alpha, scale=beta)
  
@@ -34,29 +33,6 @@
 +    out = (1-pneu)*ssd.gamma.pdf(xx, alpha, scale=beta)
 +    # Assume gamma < 1e-4 is essentially neutral
 +    out[np.logical_and(0 <= xx, xx < 1e-4)] += pneu/1e-4
-+    # Reduce xx back to scalar if it's possible
-+    return np.squeeze(out)
-+
-+
-+
-+def neugammazero(xx, params):
-+    """Return Neutral + Gamma distribution"""
-+    """params = (shape, scale, pneu)
-+    This is a mixed distribution with a uniform distribution for gamma < 1e-4 with pneu proportion.
-+    A gamma distribution is used for gamma > 1e-4, with the remaining proportion.
-+    pneu is the proportion of neutral mutations
-+    """
-+    alpha, beta, pneu= params
-+    xx = np.atleast_1d(xx)
-+    # Assume gamma < 1e-4 is essentially neutral
-+    # if gammaneu is not provided, assume it's 1e-4
-+    # Change it to 2Nas approximately 1e-5, Na is about 18000. 
-+    gammaneu = 1e-4
-+    #gammaneu = 0.36
-+    #gammaneu = 1e-4
-+    pgamma=1-ssd.gamma.cdf(x=gammaneu, loc=0, a=alpha, scale=beta)
-+    out = ((1-pneu)/pgamma)*ssd.gamma.pdf(xx,loc=0, a=alpha, scale=beta)
-+    out[np.logical_and(0 <= xx, xx < gammaneu)] = pneu/gammaneu
 +    # Reduce xx back to scalar if it's possible
 +    return np.squeeze(out)
 +

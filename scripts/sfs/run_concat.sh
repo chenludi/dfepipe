@@ -33,7 +33,10 @@
 #   quiecent_ctrl.<shortbase>_<CTRL_TAG>.chrs_1t22.fs
 #   fsmut.has_qui.<shortbase>_<CTRL_TAG>.chrs_1t22.tab
 #   fsmut.quiecent_ctrl.<shortbase>_<CTRL_TAG>.chrs_1t22.tab
-# "chrs_1t22" is a literal, as in the original, and does not track CHROMS.
+# "chrs_1t22" is a literal, as in the original: this pipeline analyses the
+# autosomes and nothing else, so CHROMS is 1-22 and the name is accurate.
+# concat_chroms.tsv records what actually went in, in case CHROMS was cut
+# down for a test run.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

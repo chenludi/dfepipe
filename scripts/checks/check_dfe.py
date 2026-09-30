@@ -27,7 +27,6 @@ import argparse
 import csv
 import glob
 import os
-import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -52,13 +51,27 @@ TEST_FS_GLOB = "has_qui.*.chrs_1t22.fs"
 OUTCOMES_NAME = "fit_outcomes.tsv"
 PACK_GLOB = "dadi-cli_dfe.*.sh"
 BESTFITS_SUFFIX = ".InferDFE.bestfits"
-# What became of one starting point. `fitted` means it wrote a .bestfits;
-# whether that file carries a "# Converged results" block is a separate,
-# stricter question, counted as n_converged_block. Roughly a third of the
-# published .bestfits files are fitted but not converged.
-OUTCOME_KINDS = ("fitted", "no_likelihood", "timeout", "not_run")
-# Runs made before the rename wrote "converged" for what is now "fitted".
-OUTCOME_ALIASES = {"converged": "fitted"}
+# dadi-cli writes .InferDFE.opts.<n> as it optimises, so its absence means the
+# optimisation never started.
+OPTS_INFIX = ".InferDFE.opts."
+# What became of one starting point:
+#
+#   fitted      wrote a .bestfits. Whether that file carries a converged block
+#               is a separate, stricter question (n_converged_block); roughly a
+#               third of the published .bestfits files never converged.
+#   no_optimum  dadi-cli ran its optimisations but none reached a usable
+#               likelihood, so it wrote no .bestfits. Normal for a starting
+#               point at the edge of the grid, and part of the design.
+#   crashed     dadi-cli exited without optimising at all: no .opts file. That
+#               is a technical fault - a cache path that does not exist, a
+#               --demo-popt dadi cannot read, a broken environment - and not a
+#               property of the likelihood surface.
+#   timeout     killed by the per-fit clock, DFE_TIMEOUT.
+#   not_run     the array task never reached it, usually its own h_rt.
+OUTCOME_KINDS = ("fitted", "no_optimum", "crashed", "timeout", "not_run")
+# Earlier runs wrote `converged` for what is now `fitted`, and `no_likelihood`
+# for what is now `no_optimum` (which then also covered a crash).
+OUTCOME_ALIASES = {"converged": "fitted", "no_likelihood": "no_optimum"}
 # CLI defaults, read from pipeline.conf; the caller passes the configured
 # values through --max-notrun-frac and friends.
 DFE_MAX_NOTRUN_FRAC = conf.get_float("DFE_MAX_NOTRUN_FRAC", 0.20)
@@ -93,9 +106,9 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
     warning uses.
 
     `outcomes` is a count_outcomes() mapping, or None where there are no
-    starting points to account for. no_likelihood and timeout are reported by
-    row_for and never judged here: a bad starting point that fails fast is part
-    of the design.
+    starting points to account for. no_optimum and timeout are reported by
+    row_for and never judged here: a starting point that reaches no likelihood
+    is part of the design. `crashed` is judged, because it is technical.
     """
     fails = []
     if n_fits is not None and n_fits < 1:
@@ -105,17 +118,19 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
             "failed - check the SGE logs and the pack files")
     if outcomes and outcomes["n_starting_points"] and not outcomes["n_fitted"]:
         fails.append(
-            "not one of the %d starting points produced a fit: there is no best "
-            "fit to take. %d produced no likelihood, %d timed out, %d never ran"
-            % (outcomes["n_starting_points"], outcomes["n_no_likelihood"],
-               outcomes["n_timeout"], outcomes["n_not_run"]))
-    if (outcomes and outcomes["n_rc_logged"]
-            and outcomes["n_rc_nonzero"] == outcomes["n_rc_logged"]):
+            "not one of the %d starting points produced a fit, so there is no "
+            "best fit to take: %d optimised without reaching a usable "
+            "likelihood, %d never started optimising, %d timed out, %d never ran"
+            % (outcomes["n_starting_points"], outcomes["n_no_optimum"],
+               outcomes["n_crashed"], outcomes["n_timeout"],
+               outcomes["n_not_run"]))
+    if outcomes and outcomes["n_crashed"] == outcomes["n_starting_points"] > 0:
         fails.append(
-            "every one of the %d logged fits exited non-zero: that is a "
-            "systematic failure, not a hard likelihood surface. Check the cache "
-            "path, --demo-popt and the environment before re-running"
-            % outcomes["n_rc_logged"])
+            "all %d starting points exited without optimising at all - no .opts "
+            "file anywhere. dadi-cli never got started, so this is a technical "
+            "fault, not a hard likelihood surface: check that the cache file "
+            "exists, that --demo-popt is readable, and that the environment is "
+            "the right one" % outcomes["n_starting_points"])
     if ll_dfe is None:
         fails.append(
             "%s is missing or holds no fit: the summary stage and the "
@@ -156,6 +171,11 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
                  "under-explored. RESUME=1 finishes them"
                  % (outcomes["n_not_run"], n, 100 * outcomes["frac_not_run"],
                     100 * max_notrun_frac))
+        if outcomes["n_crashed"]:
+            warn("%d of %d starting points exited without optimising at all (no "
+                 ".opts file): that is a technical fault rather than a hard "
+                 "likelihood surface, so check the SGE logs for those markers"
+                 % (outcomes["n_crashed"], n))
         # Keyed on the converged count, not the looser fitted one: a fit with no
         # converged block says nothing about whether the optimiser settled.
         if n_converged_block is not None:
@@ -274,15 +294,6 @@ def read_pack_markers(dfe_dir):
     return list(dict.fromkeys(markers))
 
 
-_RC_RE = re.compile(r"\brc=(-?\d+)")
-
-
-def _rc_from_note(note):
-    """The exit code run_dfe.sh wrote into the note column, or None."""
-    m = _RC_RE.search(note or "")
-    return int(m.group(1)) if m else None
-
-
 def count_outcomes(dfe_dir):
     """The four per-starting-point outcome counts for one run directory.
 
@@ -292,10 +303,10 @@ def count_outcomes(dfe_dir):
     decides. A marker in the packs with neither is `not_run`: the array task
     never reached it.
 
-    Also counts exit codes out of the log's note column: n_rc_logged fits
-    recorded one, n_rc_nonzero of them a failure. Every fit failing with a
-    non-zero code is a systematic problem (wrong cache path, bad --demo-popt),
-    not a hard likelihood surface, so assess_dfe FAILs on it.
+    A marker with no .bestfits is `crashed` when it left no .opts file either,
+    because dadi-cli writes .opts as it optimises: no .opts means it never got
+    that far. Anything else that produced no .bestfits did optimise and simply
+    never reached a usable likelihood, which is `no_optimum`.
     """
     dfe_dir = str(dfe_dir)
     markers = read_pack_markers(dfe_dir)
@@ -310,23 +321,24 @@ def count_outcomes(dfe_dir):
     if not markers:
         markers = sorted(set(logged) | fitted)
 
+    optimised = set()
+    for path in glob.glob(os.path.join(dfe_dir, "*" + OPTS_INFIX + "*")):
+        optimised.add(os.path.basename(path).split(OPTS_INFIX)[0])
+
     counts = dict.fromkeys(("n_" + k for k in OUTCOME_KINDS), 0)
-    counts["n_rc_logged"] = counts["n_rc_nonzero"] = 0
     for marker in markers:
         entry = logged.get(marker)
-        rc = _rc_from_note(entry["note"]) if entry else None
-        if rc is not None:
-            counts["n_rc_logged"] += 1
-            if rc != 0:
-                counts["n_rc_nonzero"] += 1
         if marker in fitted:
             counts["n_fitted"] += 1
-        elif entry and entry["outcome"] in ("no_likelihood", "timeout"):
-            counts["n_" + entry["outcome"]] += 1
+        elif entry and entry["outcome"] == "timeout":
+            counts["n_timeout"] += 1
+        elif marker in optimised:
+            # It optimised but wrote no .bestfits, whatever the log says.
+            counts["n_no_optimum"] += 1
         elif entry:
-            # Logged as fitted, but the .bestfits is gone: it produced nothing
-            # readable now, which is what no_likelihood means to every reader.
-            counts["n_no_likelihood"] += 1
+            # Attempted, but nothing came back - not even the .opts dadi-cli
+            # writes while it optimises.
+            counts["n_crashed"] += 1
         else:
             counts["n_not_run"] += 1
 
@@ -462,8 +474,8 @@ def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
                             if ll_dfe is not None and ll_neu is not None else "NA"),
         "ll_spread_top": round(max(top) - min(top), 6) if len(top) >= 2 else "NA",
     }
-    # Every starting point accounted for, in the four outcomes of
-    # fit_outcomes.tsv. no_likelihood and timeout are reported, never judged.
+    # Every starting point accounted for, in the five outcomes of
+    # fit_outcomes.tsv. no_optimum and timeout are reported, never judged.
     row["n_starting_points"] = outcomes["n_starting_points"] if outcomes else "NA"
     for kind in OUTCOME_KINDS:
         row["n_" + kind] = outcomes["n_" + kind] if outcomes else "NA"

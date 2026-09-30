@@ -3,7 +3,7 @@
 #   bash setup/setup.sh [env_prefix]
 # Idempotent: re-running with the env present only re-verifies the patches.
 #
-# The patches add the neugamma / neugammazero / gammaneud1 probability density
+# The patches add the neugamma / gammaneud1 probability density
 # functions. They were cut from the dadi0116 env on hoffman2 against pristine
 # dadi 2.3.3 and dadi-cli 0.9.5; see records/260929_extract_patches.sh.
 #
