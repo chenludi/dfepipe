@@ -43,6 +43,9 @@
 #     finishes a timed-out run without repeating it; FORCE=1 redoes every fit.
 #   * the malformed makefile_p0_dfeinput.tab (nine header columns, eight data
 #     fields) is replaced by spec.txt, which every stage in this package writes.
+#   * every starting point's outcome is appended to fit_outcomes.tsv
+#     (marker / outcome / seconds / note) as its fit finishes. check_dfe.py
+#     reads it; the fourth outcome, not_run, is derived there.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -331,6 +334,23 @@ PY
   fi
 fi
 
+# ------------------------------------------------------- the outcome log ----
+# fit_outcomes.tsv records what became of every starting point this job
+# attempts, appended as the fit finishes, so a task killed by h_rt still leaves
+# a record of what it got through. It is APPEND-ONLY and never rewritten: a
+# RESUME re-run adds rows, and check_dfe.py takes the LAST row for a marker.
+# Concurrent array tasks share the file, so the append is serialised with flock
+# where flock exists (one write of one short line otherwise).
+log_outcome() {  # <logfile> <marker> <outcome> <seconds> <note>
+  local f="$1"; shift
+  local line; line="$(printf '%s\t%s\t%s\t%s' "$@")"
+  if command -v flock >/dev/null 2>&1; then
+    printf '%s\n' "$line" | flock "${f}.lock" bash -c 'cat >> "$1"' _ "$f"
+  else
+    printf '%s\n' "$line" >> "$f"
+  fi
+}
+
 # ------------------------------------------------------------------- the fits --
 # Each command line is run on its own with a timeout, as
 # submit_dadi-cli_dfebash.sh:66-81 does: a starting point that wanders into a
@@ -338,6 +358,10 @@ fi
 n_done=0; n_skipped=0; n_failed=0
 for i in "${!beds[@]}"; do
   d="${dirs[$i]}"
+  outlog="${d}/fit_outcomes.tsv"
+  # noclobber makes the header write O_EXCL, so two array tasks racing to
+  # create the log cannot truncate each other's rows.
+  ( set -o noclobber; printf 'marker\toutcome\tseconds\tnote\n' > "$outlog" ) 2>/dev/null || true
   if [[ -n "$pack_mode" ]]; then
     packs=("${d}/${pack_mode}")
     [[ -s "${packs[0]}" ]] || {
@@ -358,12 +382,16 @@ for i in "${!beds[@]}"; do
       # The output prefix is the last field of --output-prefix; its .bestfits is
       # what marks this starting point finished.
       prefix="$(awk '{for (k = 1; k < NF; k++) if ($k == "--output-prefix") print $(k+1)}' <<< "$cmd")"
+      marker="$(basename "${prefix:-}")"
       if [[ -n "$prefix" && -s "${prefix}.InferDFE.bestfits" && "${FORCE:-0}" != "1" ]]; then
         n_skipped=$((n_skipped + 1))
+        log_outcome "$outlog" "$marker" converged 0 "already present, not re-run"
         continue
       fi
 
+      t0=$SECONDS
       if timeout "$DFE_TIMEOUT" bash -c "$cmd"; then
+        rc=0
         n_done=$((n_done + 1))
       else
         rc=$?
@@ -373,6 +401,21 @@ for i in "${!beds[@]}"; do
           echo "run_dfe: exit ${rc}: ${cmd}" >&2
         fi
         n_failed=$((n_failed + 1))
+      fi
+
+      # A non-empty .bestfits is the fit; rc 124 is the timeout kill; anything
+      # else that left no .bestfits ran its optimisations without ever getting
+      # a likelihood. `rc` in the note keeps a real crash distinguishable.
+      if [[ -n "$marker" ]]; then
+        if [[ -s "${prefix}.InferDFE.bestfits" ]]; then
+          log_outcome "$outlog" "$marker" converged "$((SECONDS - t0))" "rc=${rc}"
+        elif [[ "$rc" -eq 124 ]]; then
+          log_outcome "$outlog" "$marker" timeout "$((SECONDS - t0))" \
+                      "killed after ${DFE_TIMEOUT}"
+        else
+          log_outcome "$outlog" "$marker" no_likelihood "$((SECONDS - t0))" \
+                      "rc=${rc}, no .bestfits"
+        fi
       fi
     done < "$pack"
   done

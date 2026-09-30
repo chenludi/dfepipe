@@ -45,6 +45,18 @@ LARGE_LL_NAME = "large_ll.txt"
 # bed's short name and CTRL_TAG, so it is globbed rather than rebuilt: the file
 # the sfs stage wrote is the authority.
 TEST_FS_GLOB = "has_qui.*.chrs_1t22.fs"
+# run_dfe.sh's per-starting-point log, and the packs that define which starting
+# points exist at all.
+OUTCOMES_NAME = "fit_outcomes.tsv"
+PACK_GLOB = "dadi-cli_dfe.*.sh"
+BESTFITS_SUFFIX = ".InferDFE.bestfits"
+OUTCOME_KINDS = ("converged", "no_likelihood", "timeout", "not_run")
+# pipeline.conf's DFE_MAX_NOTRUN_FRAC / DFE_MIN_CONVERGED_FRAC /
+# DFE_MIN_CONVERGED_N. Repeated here only as the CLI defaults; the caller passes
+# the configured values through --max-notrun-frac and friends.
+DFE_MAX_NOTRUN_FRAC = 0.20
+DFE_MIN_CONVERGED_FRAC = 0.20
+DFE_MIN_CONVERGED_N = 10
 # run_fitneu.sh keeps the historical log name; its `ll: ` line is the null.
 NEU_LOG_GLOB = "*.dadi_cal_ll_neu_0723.log"
 
@@ -52,8 +64,11 @@ NEU_LOG_GLOB = "*.dadi_cal_ll_neu_0723.log"
 # ------------------------------------------------------------------- verdict --
 
 def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
-               n_converged=None, num_convergence=5,
-               ll_spread_warn=CONVERGENCE_LL_SPREAD):
+               n_converged_block=None, num_convergence=5,
+               ll_spread_warn=CONVERGENCE_LL_SPREAD, outcomes=None,
+               max_notrun_frac=DFE_MAX_NOTRUN_FRAC,
+               min_converged_frac=DFE_MIN_CONVERGED_FRAC,
+               min_converged_n=DFE_MIN_CONVERGED_N):
     """(status, reasons) for one bed and one pdf. See the module docstring.
 
     `metrics` is a residual_metrics() mapping, or None when the spectra could
@@ -62,8 +77,17 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
     neutral null (None when run_fitneu.sh has not run) and `cfg` the threshold
     mapping residuals.classify takes.
 
-    `n_fits` and `n_converged` are skipped when None, which is how the `neu`
-    row - a single closed-form likelihood, not an optimisation - is assessed.
+    `n_fits` and `n_converged_block` are skipped when None, which is how the
+    `neu` row - a single closed-form likelihood, not an optimisation - is
+    assessed. `n_converged_block` counts the .bestfits files that carry a
+    "# Converged results" block, which is stricter than count_outcomes()'s
+    `n_converged` (a non-empty .bestfits): about half the files have no such
+    block.
+
+    `outcomes` is a count_outcomes() mapping, or None where there are no
+    starting points to account for. no_likelihood and timeout are reported by
+    row_for and never judged here: a bad starting point that fails fast is part
+    of the design.
     """
     fails = []
     if n_fits is not None and n_fits < 1:
@@ -71,6 +95,12 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
             "no fits produced: no *.InferDFE.bestfits in the run directory. "
             "Either run_dfe.sh has not run, or every command in every pack "
             "failed - check the SGE logs and the pack files")
+    if outcomes and outcomes["n_starting_points"] and not outcomes["n_converged"]:
+        fails.append(
+            "not one of the %d starting points converged: there is no best fit "
+            "to take. %d produced no likelihood, %d timed out, %d never ran"
+            % (outcomes["n_starting_points"], outcomes["n_no_likelihood"],
+               outcomes["n_timeout"], outcomes["n_not_run"]))
     if ll_dfe is None:
         fails.append(
             "%s is missing or holds no fit: the summary stage and the "
@@ -100,9 +130,23 @@ def assess_dfe(metrics, top_lls, cfg, ll_dfe=None, ll_neu=None, n_fits=None,
             warn("the top %d fits span %.1f log-likelihood units (> %.1f): they "
                  "did not converge on one optimum, so the best fit may be local"
                  % (len(lls), spread, ll_spread_warn))
-    if n_converged is not None and n_converged < num_convergence:
+    if n_converged_block is not None and n_converged_block < num_convergence:
         warn("only %d starting point(s) converged (want %d): the optimum may be "
-             "local" % (n_converged, num_convergence))
+             "local" % (n_converged_block, num_convergence))
+    if outcomes and outcomes["n_starting_points"]:
+        n = outcomes["n_starting_points"]
+        if outcomes["frac_not_run"] > max_notrun_frac:
+            warn("%d of %d starting points never ran (%.0f%% > %.0f%%): the "
+                 "array task hit its h_rt, so the parameter space was "
+                 "under-explored. RESUME=1 finishes them"
+                 % (outcomes["n_not_run"], n, 100 * outcomes["frac_not_run"],
+                    100 * max_notrun_frac))
+        if (outcomes["n_converged"] < min_converged_n
+                or outcomes["frac_converged"] < min_converged_frac):
+            warn("only %d of %d starting points converged (%.0f%%; want at "
+                 "least %d and %.0f%%): the method looks unstable on this bed"
+                 % (outcomes["n_converged"], n, 100 * outcomes["frac_converged"],
+                    min_converged_n, 100 * min_converged_frac))
     if ll_neu is not None and ll_dfe <= float(ll_neu):
         warn("the DFE log-likelihood %.1f is no better than the neutral null "
              "%.1f: selection buys this model nothing"
@@ -159,6 +203,96 @@ def read_neu_ll(directory):
     except (OSError, ValueError):
         return None
     return None
+
+
+def read_fit_outcomes(path):
+    """marker -> outcome from run_dfe.sh's fit_outcomes.tsv, or {} if absent.
+
+    The log is APPEND-ONLY: a RESUME re-run adds rows rather than rewriting
+    them, so a marker can appear more than once and the LAST row wins. Header
+    lines, blank lines and unrecognised outcomes are skipped, which is what
+    makes a header repeated by a second array task harmless.
+    """
+    out = {}
+    try:
+        with open(path) as fh:
+            for line in fh:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 2:
+                    continue
+                marker, outcome = parts[0].strip(), parts[1].strip()
+                if not marker or marker == "marker":
+                    continue
+                if outcome in OUTCOME_KINDS:
+                    out[marker] = outcome
+    except OSError:
+        return {}
+    return out
+
+
+def read_pack_markers(dfe_dir):
+    """Every starting point the packs define, as markers, in pack order.
+
+    The marker is the basename of --output-prefix, which run_dfe.sh writes as
+    the starting point's index, so it names the .bestfits and the .opts files
+    too. The packs are the authority on how many starting points exist: a
+    marker in no pack was never meant to run.
+    """
+    markers = []
+    for pack in sorted(glob.glob(os.path.join(str(dfe_dir), PACK_GLOB))):
+        try:
+            with open(pack) as fh:
+                lines = fh.read().splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            fields = line.split()
+            for k in range(len(fields) - 1):
+                if fields[k] == "--output-prefix":
+                    markers.append(os.path.basename(fields[k + 1]))
+    return list(dict.fromkeys(markers))
+
+
+def count_outcomes(dfe_dir):
+    """The four per-starting-point outcome counts for one run directory.
+
+    A non-empty .bestfits is `converged` whatever the log says - the file
+    system is the authority, and it is also the only evidence a run made before
+    this log existed leaves behind. Otherwise the log's last row for that
+    marker decides. A marker in the packs with neither is `not_run`: the array
+    task never reached it.
+    """
+    dfe_dir = str(dfe_dir)
+    markers = read_pack_markers(dfe_dir)
+    logged = read_fit_outcomes(os.path.join(dfe_dir, OUTCOMES_NAME))
+    converged = set()
+    for path in glob.glob(os.path.join(dfe_dir, "*" + BESTFITS_SUFFIX)):
+        try:
+            if os.path.getsize(path) > 0:
+                converged.add(os.path.basename(path)[:-len(BESTFITS_SUFFIX)])
+        except OSError:
+            continue
+    if not markers:
+        markers = sorted(set(logged) | converged)
+
+    counts = dict.fromkeys(("n_" + k for k in OUTCOME_KINDS), 0)
+    for marker in markers:
+        if marker in converged:
+            counts["n_converged"] += 1
+        elif logged.get(marker) in ("no_likelihood", "timeout"):
+            counts["n_" + logged[marker]] += 1
+        elif marker in logged:
+            # Logged converged, but the .bestfits is gone: it produced nothing
+            # readable now, which is what no_likelihood means to every reader.
+            counts["n_no_likelihood"] += 1
+        else:
+            counts["n_not_run"] += 1
+
+    n = len(markers)
+    counts["n_starting_points"] = n
+    for kind in OUTCOME_KINDS:
+        counts["frac_" + kind] = counts["n_" + kind] / n if n else 0.0
+    return counts
 
 
 def read_bestfits_lls(path):
@@ -226,11 +360,14 @@ def _bed_base(bed):
 # ---------------------------------------------------------------------- rows --
 
 def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
-            num_convergence):
+            num_convergence, max_notrun_frac=DFE_MAX_NOTRUN_FRAC,
+            min_converged_frac=DFE_MIN_CONVERGED_FRAC,
+            min_converged_n=DFE_MIN_CONVERGED_N):
     """The single check row for one bed and one pdf."""
     is_neu = pdf == "neu"
 
-    n_fits = n_converged = None
+    outcomes = None
+    n_fits = n_converged_block = None
     top = []
     header, rows = (None, None)
     ll_dfe = None
@@ -243,7 +380,7 @@ def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
         fits = sorted(glob.glob(os.path.join(dfe_dir, "*.InferDFE.bestfits")))
         n_fits = len(fits)
         per_file = [read_bestfits_lls(f) for f in fits]
-        n_converged = sum(1 for lls in per_file if lls)
+        n_converged_block = sum(1 for lls in per_file if lls)
         all_lls = sorted((max(lls) for lls in per_file if lls), reverse=True)
         top = all_lls[:num_convergence]
         header, rows = read_large_ll(os.path.join(dfe_dir, LARGE_LL_NAME))
@@ -252,6 +389,7 @@ def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
             ll_dfe = best["Log(likelihood)"]
         best_file = best.get("filename", "NA") if best else "NA"
         ll_neu = read_neu_ll(neu_dir)
+        outcomes = count_outcomes(dfe_dir)
 
     test = sorted(glob.glob(os.path.join(test_fs_dir, TEST_FS_GLOB)))
     data = read_fs(test[0]) if test else None
@@ -262,7 +400,10 @@ def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
 
     status, reasons = assess_dfe(
         metrics, top, cfg, ll_dfe=ll_dfe, ll_neu=ll_neu, n_fits=n_fits,
-        n_converged=n_converged, num_convergence=num_convergence)
+        n_converged_block=n_converged_block, num_convergence=num_convergence,
+        outcomes=outcomes, max_notrun_frac=max_notrun_frac,
+        min_converged_frac=min_converged_frac,
+        min_converged_n=min_converged_n)
 
     row = {
         "item": base,
@@ -270,7 +411,8 @@ def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
         "pdf": pdf,
         "reason": "; ".join(reasons) or "NA",
         "n_fits": n_fits if n_fits is not None else "NA",
-        "n_converged": n_converged if n_converged is not None else "NA",
+        "n_converged_block": (n_converged_block
+                              if n_converged_block is not None else "NA"),
         "best_file": best_file,
         "ll": ll_dfe if ll_dfe is not None else "NA",
         "ll_neu": ll_neu if ll_neu is not None else "NA",
@@ -278,6 +420,13 @@ def row_for(dfe_dir, test_fs_dir, neu_dir, base, pdf, cfg, rare_max_count,
                             if ll_dfe is not None and ll_neu is not None else "NA"),
         "ll_spread_top": round(max(top) - min(top), 6) if len(top) >= 2 else "NA",
     }
+    # Every starting point accounted for, in the four outcomes of
+    # fit_outcomes.tsv. no_likelihood and timeout are reported, never judged.
+    row["n_starting_points"] = outcomes["n_starting_points"] if outcomes else "NA"
+    for kind in OUTCOME_KINDS:
+        row["n_" + kind] = outcomes["n_" + kind] if outcomes else "NA"
+        row["frac_" + kind] = (round(outcomes["frac_" + kind], 4)
+                               if outcomes else "NA")
     # The fitted parameters, whichever this pdf has, straight from large_ll.txt.
     if header and rows:
         for key in header:
@@ -312,6 +461,14 @@ def main(argv=None):
     ap.add_argument("--g2-fail", type=float, default=0.035)
     ap.add_argument("--num-convergence", type=int, default=5,
                     help="how many starting points are wanted to converge")
+    ap.add_argument("--max-notrun-frac", type=float,
+                    default=DFE_MAX_NOTRUN_FRAC,
+                    help="DFE_MAX_NOTRUN_FRAC: warn above this not_run share")
+    ap.add_argument("--min-converged-frac", type=float,
+                    default=DFE_MIN_CONVERGED_FRAC,
+                    help="DFE_MIN_CONVERGED_FRAC: warn below this converged share")
+    ap.add_argument("--min-converged-n", type=int, default=DFE_MIN_CONVERGED_N,
+                    help="DFE_MIN_CONVERGED_N: warn below this many converged")
     ap.add_argument("beds", nargs="+", help="the input beds the stage was run on")
     a = ap.parse_args(argv)
 
@@ -331,7 +488,10 @@ def main(argv=None):
             os.path.join(a.out, base, a.run),
             os.path.join(a.sfs_out, base, a.fs_run),
             os.path.join(a.out, base, a.neu_run) if a.neu_run else "",
-            base, a.pdf, cfg, a.rare_max_count, a.num_convergence))
+            base, a.pdf, cfg, a.rare_max_count, a.num_convergence,
+            max_notrun_frac=a.max_notrun_frac,
+            min_converged_frac=a.min_converged_frac,
+            min_converged_n=a.min_converged_n))
 
     os.makedirs(a.out, exist_ok=True)
     dest = os.path.join(a.out, "check_dfe.%s.tsv" % a.run)
