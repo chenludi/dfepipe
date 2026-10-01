@@ -144,3 +144,18 @@ def test_submit_dfe_derives_packnumber_from_the_preferences():
     assert "DFE_TARGET_TASK_HOURS * 3600 / DFE_SECONDS_PER_FIT" in sub
     # ... and a task cap is checked once the array size is known, and refuses
     assert "DFE_MAX_TASKS" in sub and "Nothing was submitted" in sub
+
+
+def test_conf_sources_cleanly_under_set_u():
+    """Every derived path must resolve with `set -u`: a dropped helper variable
+    (_conf_dir) only shows up here, not in a plain source."""
+    env = ("OUT=/tmp REFS_DIR=/tmp PREP_RUN=r FS_RUN=r DEMO_RUN=r CACHE_RUN=r "
+           "DFE_RUN=r SUMMARY_RUN=r ")
+    script = (
+        f"set -euo pipefail; {env} source {ROOT}/config/pipeline.conf; "
+        'printf "%s\\n%s\\n%s\\n" "$CACHE_MARKER_TABLE" "$MODELSEL_TABLE" '
+        '"$RESID_REFERENCE"')
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    for line in r.stdout.split():
+        assert line.startswith("/") and "/config/" in line, line
