@@ -153,12 +153,12 @@ misstates what most of the fits used.
 `spec.txt`'s `cachefile=`, naming both paths. `FORCE=1` or a new `DFE_RUN` is
 then the way forward.
 
-- [ ] Decide what to do with `dfe_260929`. It is a validation run, not a
-      manuscript result, so the cheapest answer is to discard it and do two
-      clean runs: one pinned to the reference cache (reproduces the published
-      number) and one on the pipeline's own cache (what the package will do).
-      Comparing them answers a question worth answering anyway - whether our
-      cache gives the same DFE as the original.
+**Decision 2026-09-30: leave it.** `dfe_260929` stays as it is and development
+continues on it. The two caches agree to the precision anything here is measured
+at, so the mixture does not mislead a development check, and re-running it now
+would cost hours for no new information. It is not a manuscript result.
+Correctness is established instead by the clean end-to-end rerun, which is the
+acceptance test for the finished package - see `todo/final_clean_rerun.md`.
 - [ ] `spec.txt` is rewritten on every pack regeneration, so it describes the
       last submission rather than the run. Either stop rewriting it once fits
       exist, or version it.
