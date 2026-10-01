@@ -119,15 +119,29 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
 13. `piperef_stddfe_8_plotdfe.sh` has no `neugammazero` branch and exits 1 —
     the pdf step 7 was extended to fit. Moot for us: neugammazero is out of the
     pipeline (`todo/toimplement_pdf_neugammazero.md`).
-14. `plot_converge_dfe_0430.py`: `:370` IndexErrors when <=2 starting points
-    converged; `:404` intends a `large_ll.txt` backup that never happens; `:494`
+14. **Checked 2026-09-30, nothing published was affected.** The `:370`
+    IndexError needs <=2 converged starting points; the two thinnest published
+    runs are dELS with 3 and pELS with 4, and both completed - dELS has a
+    4-line large_ll.txt, 17 figures and its csv, pELS 5 lines and 18 figures.
+    Still true that `:370` IndexErrors when <=2 converged; `:404` intends a `large_ll.txt` backup that never happens; `:494`
     rounds figure names to 3 decimals so near-identical fits overwrite each
     other (4 pdfs for 10 plotted fits in the reference dir).
 15. `piperef_stddfe_8_plotdfe.sh:69` hardcodes `cachenumber=1`, so step 8 can
     only read `cache_1.spectra.bpkl` whatever step 6 built.
-16. `piperef_stddfe_1_rmHETqui.sh` cannot produce the CDS/mask filters — it
-    stops after HET and quiescent. The full chain is `submit_exHETquiencmask.sh`
-    then `filt_nc-unmask.sh`.
+16. **Confirmed 2026-09-30 by reproduction, not by reading.**
+    `piperef_stddfe_1_rmHETqui.sh` -> `submit_funsp_exhetqui.sh` ->
+    `funsp_exhetqui.sh` stops after HET and quiescent and only counts lengths.
+    `submit_exHETquiencmask.sh:35,37` repeats those two subtracts and then calls
+    `filt_nc-unmask.sh`, which subtracts CDS (`:38`) and intersects the mask
+    (`:46-47`). The `s.nc_` prefix on every published file is that script's
+    `output1`, so the published beds came through it. Our port reproduces those
+    beds exactly, which is the actual evidence.
+    Note the originals' HET/quiescent paths are stale: they name
+    `chromHMM_100_states/temp_HET.bed`, which no longer exists - the files are
+    now in `chromHMM_100_states/temp/`. Our profile points at the files that
+    exist, and prep matching the published output confirms they are the right
+    ones. The four filters are set operations, so their order does not change
+    the final bases, only the intermediate counts in lengths.tsv.
 17. GNU-only: `stat -c %s` (`piperef_stddfe_2_concatefs.sh`), `sed -i`
     (`piperef_stddfe_9_sumdfe.sh`).
 18. Checked and NOT a bug: `dadi_cal_ll_neu_0723.py:206-214` passes an unfolded
