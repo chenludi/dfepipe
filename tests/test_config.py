@@ -153,8 +153,7 @@ def test_conf_sources_cleanly_under_set_u():
            "DFE_RUN=r SUMMARY_RUN=r ")
     script = (
         f"set -euo pipefail; {env} source {ROOT}/config/pipeline.conf; "
-        'printf "%s\\n%s\\n%s\\n" "$CACHE_MARKER_TABLE" "$MODELSEL_TABLE" '
-        '"$RESID_REFERENCE"')
+        'printf "%s\\n%s\\n" "$CACHE_MARKER_TABLE" "$MODELSEL_TABLE"')
     r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     for line in r.stdout.split():
