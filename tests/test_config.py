@@ -178,11 +178,15 @@ def test_no_stage_hardcodes_a_config_value():
 
 
 def test_every_roulette_consumer_asserts_the_key():
-    """A stage that computes u must demand the value rather than invent one."""
+    """A stage that APPLIES the scale must demand the value, not invent one.
+
+    Keyed on `ROULETTE_SCALE *`, the multiplication, not on the column name:
+    run_sfs_chrom.sh writes the raw averaged rate into the fsmut table and never
+    scales it, so it is not a consumer.
+    """
     missing = []
     for path in sorted(ROOT.glob("scripts/*/*.sh")):
         text = path.read_text()
-        if "avepersite_diploi_Roulette_mutrate" in text:
-            if 'ROULETTE_SCALE:?' not in text:
-                missing.append(str(path.relative_to(ROOT)))
+        if "ROULETTE_SCALE *" in text and "ROULETTE_SCALE:?" not in text:
+            missing.append(str(path.relative_to(ROOT)))
     assert missing == [], missing
