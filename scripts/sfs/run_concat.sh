@@ -55,9 +55,15 @@ source "${REPO_DIR}/config/env.sh"
 : "${MIN_SNPS:?MIN_SNPS not set}"
 : "${R_MOD:?R_MOD not set}"
 
-# The two legacy R scripts live with the reference data, beside the rest of the
-# original pipeline. Override LEGACY_SCRIPT_DIR if they sit elsewhere.
-LEGACY_SCRIPT_DIR="${LEGACY_SCRIPT_DIR:-${REFS_DIR}/script}"
+# The two R scripts are vendored in scripts/sfs/R/, verbatim copies of the
+# originals from $REFS_DIR/script (see that directory's PROVENANCE). They are
+# shipped because the package otherwise could not run anywhere but one cluster:
+# everything else it needs is either in the config or vendored, and these two
+# were the only executable dependency left outside it.
+#
+# LEGACY_SCRIPT_DIR still overrides, so a run can be pinned to the originals -
+# which is how the vendored copies were checked.
+LEGACY_SCRIPT_DIR="${LEGACY_SCRIPT_DIR:-${REPO_DIR}/scripts/sfs/R}"
 CONCAT_FS_R="${LEGACY_SCRIPT_DIR}/concatefs.R"
 CONCAT_MUT_R="${LEGACY_SCRIPT_DIR}/concate_mut.R"
 
@@ -71,9 +77,9 @@ fi
 
 for f in "$CONCAT_FS_R" "$CONCAT_MUT_R"; do
   [[ -s "$f" ]] || {
-    echo "concat: legacy R script not found: $f" >&2
-    echo "        Set LEGACY_SCRIPT_DIR to the directory holding concatefs.R" >&2
-    echo "        and concate_mut.R." >&2
+    echo "concat: R script not found: $f" >&2
+    echo "        It ships in scripts/sfs/R/. If LEGACY_SCRIPT_DIR is set, it" >&2
+    echo "        must hold concatefs.R and concate_mut.R." >&2
     exit 1; }
 done
 

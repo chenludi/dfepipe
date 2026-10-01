@@ -140,6 +140,13 @@ done
 # ---------------------------------------------------------------- checkpoint ----
 # Diagnostic only: a bug in the check must never discard a finished stage, so its
 # failure warns and the stage's exit status is left alone.
+# The same preflight the chain runs, for a prep invoked on its own. Advisory
+# here: prep itself cannot be damaged by a badly named bed, the waste comes
+# later, so this reports and carries on.
+python3 "${REPO_DIR}/scripts/checks/check_bed.py" \
+  --chroms "$CHROMS" --ctrl-flank "$CTRL_FLANK" --mask-bed "${MASK_BED:-}" \
+  --out "${OUT}/prep" --run "${PREP_RUN}" "$@" || true
+
 if ! python3 "${REPO_DIR}/scripts/checks/check_prep.py" \
        --out "${OUT}/prep" --run "${PREP_RUN}" "$@"; then
   echo "WARNING: check_prep.py failed; the prep output above is unaffected." >&2

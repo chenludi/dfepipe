@@ -91,6 +91,19 @@ for bed in "$@"; do
   beds+=("$(cd "$(dirname "$bed")" && pwd)/$(basename "$bed")")
 done
 
+# Preflight the input before a single job is submitted. A bed named `1` instead
+# of `chr1` would otherwise pass prep, produce nothing in all 22 sfs tasks, and
+# surface as "cannot concatenate" an hour later. FAIL blocks; WARN is printed and
+# the chain goes on, because every warning it raises is a judgement for the user.
+if ! python3 "${REPO_DIR}/scripts/checks/check_bed.py" \
+       --chroms "$CHROMS" --ctrl-flank "$CTRL_FLANK" \
+       --mask-bed "${MASK_BED:-}" "${beds[@]}"; then
+  echo "run_all: the input bed did not pass preflight; nothing was submitted." >&2
+  echo "      Fix the bed, or set FORCE=1 to submit anyway." >&2
+  [[ "${FORCE:-0}" == "1" ]] || exit 1
+  echo "run_all: FORCE=1 - submitting despite the preflight failure" >&2
+fi
+
 STAGES=(prep sfs demo cache dfe summary)
 from="${FROM:-prep}"
 printf '%s\n' "${STAGES[@]}" | grep -qx "$from" || {

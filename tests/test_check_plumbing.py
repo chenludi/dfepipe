@@ -39,6 +39,10 @@ CHECKS = {
                   "--sfs-out", "{out}", "--fs-run", "r", "A.bed"],
     "check_summary": ["--out", "{out}", "--run", "r", "--pdfs",
                       "neu gamma neugamma", "A.bed"],
+    # check_bed is the one that runs BEFORE a stage, so its "empty run" is a
+    # bed that does not exist. It must still write a check file and say FAIL.
+    "check_bed": ["--chroms", "1 2", "--out", "{out}", "--run", "r",
+                  "{out}/absent.bed"],
 }
 STATUSES = {"PASS", "WARN", "FAIL", "SKIP"}
 
