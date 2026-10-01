@@ -18,7 +18,11 @@ set -euo pipefail
 : "${DFE_PDF:?DFE_PDF must be exported by the launcher (submit_dfe.sh)}"
 
 if [[ "$DFE_PDF" == "neu" ]]; then
-  echo "worker_dfe: host=$(hostname) job=${JOB_ID:-none} pdf=neu started $(date)"
+  # shellcheck source=gate_upstream.sh
+source "${REPO_DIR}/scripts/sge/gate_upstream.sh"
+dfepipe_gate_or_exit "worker_dfe"
+
+echo "worker_dfe: host=$(hostname) job=${JOB_ID:-none} pdf=neu started $(date)"
   bash "${REPO_DIR}/scripts/dfe/run_fitneu.sh" "$@"
   echo "worker_dfe: pdf=neu finished $(date)"
   exit 0

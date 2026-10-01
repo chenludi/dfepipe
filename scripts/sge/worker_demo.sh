@@ -24,6 +24,10 @@ if (( idx < 0 || idx >= ${#_p0files[@]} )); then
 fi
 p0file="${_p0files[$idx]}"
 
+# shellcheck source=gate_upstream.sh
+source "${REPO_DIR}/scripts/sge/gate_upstream.sh"
+dfepipe_gate_or_exit "worker_demo"
+
 echo "worker_demo: host=$(hostname) job=${JOB_ID:-none} task=${SGE_TASK_ID}" \
      "p0file=${p0file} started $(date)"
 bash "${REPO_DIR}/scripts/demo/run_demo.sh" "$p0file" "$@"

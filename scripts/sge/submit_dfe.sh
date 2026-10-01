@@ -115,6 +115,10 @@ job_env="${job_env},DFE_RUN=${DFE_RUN},DFE_PDF=${pdf}"
 # The worker turns h_rt into a deadline so run_dfe.sh can stop before a fit
 # it cannot finish, instead of having one killed part-way.
 job_env="${job_env},SGE_DFE_RT=${SGE_DFE_RT}"
+# The chain sets these; a stage submitted by hand leaves them unset and
+# no gate runs. scripts/sge/gate_upstream.sh
+[[ -n "${GATE_FILES:-}" ]] && job_env="${job_env},GATE_FILES=${GATE_FILES}"
+[[ -n "${GATE_STAGE:-}" ]] && job_env="${job_env},GATE_STAGE=${GATE_STAGE}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 [[ -n "${RESUME:-}" ]] && job_env="${job_env},RESUME=${RESUME}"
 [[ -n "${DFE_CACHE_FILE:-}" ]] && job_env="${job_env},DFE_CACHE_FILE=${DFE_CACHE_FILE}"

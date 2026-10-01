@@ -21,6 +21,10 @@ if (( idx < 0 || idx >= ${#_chroms[@]} )); then
 fi
 chrom="${_chroms[$idx]}"
 
+# shellcheck source=gate_upstream.sh
+source "${REPO_DIR}/scripts/sge/gate_upstream.sh"
+dfepipe_gate_or_exit "worker_sfs"
+
 echo "worker_sfs: host=$(hostname) job=${JOB_ID:-none} task=${SGE_TASK_ID} chrom=${chrom} started $(date)"
 bash "${REPO_DIR}/scripts/sfs/run_sfs_chrom.sh" "$chrom" "$@"
 echo "worker_sfs: chrom=${chrom} finished $(date)"

@@ -7,6 +7,10 @@
 set -euo pipefail
 : "${REPO_DIR:?REPO_DIR must be exported by the launcher (submit_prep.sh)}"
 
+# shellcheck source=gate_upstream.sh
+source "${REPO_DIR}/scripts/sge/gate_upstream.sh"
+dfepipe_gate_or_exit "worker_prep"
+
 echo "worker_prep: host=$(hostname) job=${JOB_ID:-none} started $(date)"
 bash "${REPO_DIR}/scripts/prep/run_prep.sh" "$@"
 echo "worker_prep: finished $(date)"

@@ -64,6 +64,10 @@ mkdir -p "$log_dir"
 # would shift every task's index - from the worker node's environment. -V
 # carries the rest of the exported environment (the site profile).
 job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},FS_RUN=${FS_RUN},PREP_RUN=${PREP_RUN},CHROMS=${CHROMS}"
+# The chain sets these; a stage submitted by hand leaves them unset and
+# no gate runs. scripts/sge/gate_upstream.sh
+[[ -n "${GATE_FILES:-}" ]] && job_env="${job_env},GATE_FILES=${GATE_FILES}"
+[[ -n "${GATE_STAGE:-}" ]] && job_env="${job_env},GATE_STAGE=${GATE_STAGE}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 
 qsub ${TERSE:+-terse} \

@@ -91,6 +91,10 @@ job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},FS_RUN=${FS_RUN},DEMO_RUN=${DEMO_RUN}"
 job_env="${job_env},DEMO_MODEL=${DEMO_MODEL},CACHE_RUN=${CACHE_RUN}"
 job_env="${job_env},CACHE_MARKER=${CACHE_MARKER}"
 job_env="${job_env},CACHE_BEDS=${beds[*]}"
+# The chain sets these; a stage submitted by hand leaves them unset and
+# no gate runs. scripts/sge/gate_upstream.sh
+[[ -n "${GATE_FILES:-}" ]] && job_env="${job_env},GATE_FILES=${GATE_FILES}"
+[[ -n "${GATE_STAGE:-}" ]] && job_env="${job_env},GATE_STAGE=${GATE_STAGE}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 
 # Estimate, then request 3x it (a killed cache leaves nothing to resume from,

@@ -24,6 +24,10 @@ if (( idx < 0 || idx >= ${#_beds[@]} )); then
 fi
 bed="${_beds[$idx]}"
 
+# shellcheck source=gate_upstream.sh
+source "${REPO_DIR}/scripts/sge/gate_upstream.sh"
+dfepipe_gate_or_exit "worker_cache"
+
 echo "worker_cache: host=$(hostname) job=${JOB_ID:-none} task=${SGE_TASK_ID}" \
      "bed=$(basename "$bed") started $(date)"
 bash "${REPO_DIR}/scripts/cache/run_cache.sh" "$bed"

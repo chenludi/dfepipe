@@ -47,6 +47,10 @@ mkdir -p "$log_dir"
 # silently pick up a different run key from the worker node's environment. -V
 # carries the rest of the exported environment (the site profile).
 job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},PREP_RUN=${PREP_RUN}"
+# The chain sets these; a stage submitted by hand leaves them unset and
+# no gate runs. scripts/sge/gate_upstream.sh
+[[ -n "${GATE_FILES:-}" ]] && job_env="${job_env},GATE_FILES=${GATE_FILES}"
+[[ -n "${GATE_STAGE:-}" ]] && job_env="${job_env},GATE_STAGE=${GATE_STAGE}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 
 qsub ${TERSE:+-terse} \
