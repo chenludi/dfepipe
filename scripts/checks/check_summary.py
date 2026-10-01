@@ -28,7 +28,9 @@ from checkfile import write_check  # noqa: E402
 from conf import conf  # noqa: E402
 
 TABLE_NAME = "sumdfe.tsv"
-CHECK_NAME = "check_summary.tsv"
+# Keyed by the run, as every other stage's check file is: two chains with
+# different SUMMARY_RUNs must not overwrite each other.
+CHECK_TEMPLATE = "check_summary.%s.tsv"
 BIN_PREFIX = "bin_"
 # The six bins are a partition of the DFE, so they sum to 1. The slack is for
 # the CDF arithmetic, not for a real shortfall.
@@ -162,7 +164,7 @@ def main(argv=None):
 
     rows = rows_for(a.out, a.run, a.beds, a.pdfs.split(), a.ctrl_tag,
                     bin_sum_tol=a.bin_sum_tol)
-    path = os.path.join(a.out, CHECK_NAME)
+    path = os.path.join(a.out, CHECK_TEMPLATE % a.run)
     write_check(path, rows)
     print("wrote %s" % path)
     print("  for reference only: these flag a table worth a second look, not "

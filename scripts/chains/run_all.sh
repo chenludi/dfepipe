@@ -82,7 +82,8 @@ want() {
 }
 
 log_dir="${OUT}/chains/${SUMMARY_RUN}"
-mkdir -p "$log_dir"
+# A dry run must leave the filesystem alone.
+[[ "${DRY_RUN:-0}" == "1" ]] || mkdir -p "$log_dir"
 
 # The check files each stage writes, which the next one gates on.
 chk_prep="${OUT}/prep/check_prep.${PREP_RUN}.tsv"
@@ -215,7 +216,7 @@ if want summary; then
   jid_sum="$(bare "$(step summary "$hold" "$chk_dfe" dfe \
                      scripts/summary/run_summary.sh "${beds[@]}")")"
   say summary "$jid_sum"
-  jid_bp="$(bare "$(step bestpdf "$jid_sum" "${OUT}/summary/check_summary.tsv" summary \
+  jid_bp="$(bare "$(step bestpdf "$jid_sum" "${OUT}/summary/check_summary.${SUMMARY_RUN}.tsv" summary \
                     scripts/summary/run_bestpdf.sh)")"
   say bestpdf "$jid_bp"
   echo "run_all: the table will be ${OUT}/summary/${SUMMARY_RUN}/bestpdf_sumdfe.tsv"
