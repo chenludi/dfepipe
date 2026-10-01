@@ -102,20 +102,27 @@ and the 6th decimal of shape.
 ## 3. Use measured fit times instead of DFE_SECONDS_PER_FIT
 
 `submit_dfe.sh` sizes a task from `DFE_SECONDS_PER_FIT=330`, one shipped
-constant. Measured 2026-09-30 on phastCons17way 0-5 gamma (job 14973594): a
-50-fit pack took 4h35m, so 330 s per fit on average, but the spread is wide:
+constant. Measured 2026-09-30 on phastCons17way 0-5 gamma, timing each fit as
+the gap between consecutive `.opts` mtimes inside one task:
 
-| fit | time |
-|---|---|
-| converges early (5-30 rows in .opts) | 8-30 s |
-| runs all 100 optimisations | 110-220 s |
-| hits DFE_TIMEOUT | 3600 s, 1 of 190 |
+| | n | median | p95 | max |
+|---|---|---|---|---|
+| produced a best fit | 165 | 1m15s | 5m12s | 7m53s |
+| produced no best fit | 65 | 2m03s | 3m09s | 3m35s |
+
+Two bestfit fits are recorded near 60m. At least one is an artifact: marker 54
+has a `.bestfits`, so `timeout 60m` cannot have let it run 61m47s - the gap
+includes marker 53's timeout, which immediately preceded it.
+
+Note the shape of this, which is the opposite of what we first assumed: the
+doomed small-shape seeds are the FASTEST group, not the slowest. They run all
+100 optimisations but each bails at once with no likelihood, so they finish in
+under 4 minutes. The 7-minute fits are genuine ones doing real work.
 
 - [ ] Read a previous run's `fit_outcomes.tsv` and use its 95th percentile
       instead of the constant. The column is already there.
-- [ ] The bimodality is predictable from the starting point, not random: the
-      slow fits are the small-shape seeds that never converge. A per-p0
-      estimate would beat any single number.
+- [ ] 330 s is roughly the bestfit p95, so it is conservative by about 4x
+      against the median. Fine for sizing, poor as a report.
 
 Low priority: the deadline guard means a wrong estimate costs one extra
 `RESUME=1` pass, never lost work.
