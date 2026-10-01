@@ -321,3 +321,49 @@ def test_per_chromosome_hasqui_ratio_is_against_that_chromosome(tmp_path):
     for line in (bychr / "lengths.chr1.tsv").read_text().splitlines()[1:]:
         k, v = line.split("\t"); rows[k] = int(v)
     assert round(rows["has_qui"] / rows["prep_chr"], 4) == 0.9
+
+
+# ------------------------------------------------- the neutral control inputs --
+
+import pathlib                                             # noqa: E402
+import subprocess                                          # noqa: E402
+
+PKG = pathlib.Path(__file__).resolve().parent.parent
+SFS = str(PKG / "scripts" / "sfs" / "run_sfs_chrom.sh")
+BASE_ENV = {
+    "OUT": "/tmp/o", "REFS_DIR": "/tmp/r", "PREP_RUN": "p", "FS_RUN": "f",
+    "DEMO_RUN": "d", "CACHE_RUN": "c", "DFE_RUN": "x", "SUMMARY_RUN": "s",
+    "VCF_TMPL": "/tmp/v.{chrom}.vcf.gz", "MASK_BED": "/tmp/m",
+    "CDS_BED": "/tmp/cd", "HET_BED": "/tmp/h", "QUI_BED": "/tmp/q",
+    "MUTRATE_TAB": "/tmp/mt", "POPFILE": "/tmp/pf", "POP": "YRI",
+}
+
+
+def _run_sfs(**extra):
+    env = dict(BASE_ENV)
+    env.update(extra)
+    return subprocess.run(["bash", SFS, "chr22", "/tmp/test.bed"],
+                          capture_output=True, text=True, env=env)
+
+
+def test_both_control_keys_set_is_refused():
+    """One key would have to be type-sniffed; two keys cannot be ambiguous, so
+    setting both has to be an error rather than a silent precedence rule."""
+    r = _run_sfs(NEUTRAL_CTRL_DIR="/tmp/dir", NEUTRAL_CTRL_BED="/tmp/one.bed")
+    assert r.returncode == 2
+    assert "both set" in r.stderr
+
+
+def test_neither_control_key_set_is_refused():
+    r = _run_sfs()
+    assert r.returncode == 2
+    assert "neutral controls are not set" in r.stderr
+
+
+def test_one_control_key_gets_past_the_check():
+    """Either key alone must reach the ordinary missing-input error (rc 1), not
+    the configuration error (rc 2)."""
+    for key in ("NEUTRAL_CTRL_DIR", "NEUTRAL_CTRL_BED"):
+        r = _run_sfs(**{key: "/tmp/does-not-exist"})
+        assert r.returncode == 1, (key, r.returncode, r.stderr)
+        assert "both set" not in r.stderr and "are not set" not in r.stderr

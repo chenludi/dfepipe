@@ -68,7 +68,26 @@ source "${REPO_DIR}/config/env.sh"
 : "${CTRL_FLANK:?CTRL_FLANK not set}"
 : "${MERGE_BEFORE_WINDOW:?MERGE_BEFORE_WINDOW not set}"
 : "${CTRL_TAG:?CTRL_TAG not set}"
-: "${NEUTRAL_CTRL_BED:?NEUTRAL_CTRL_BED not set: holds <CTRL_TAG>_<chrom>.bed}"
+# The neutral controls come in one of two forms, and exactly one key is set.
+# Two keys rather than one that is type-sniffed: a mistyped directory path would
+# otherwise be silently taken for a single bed.
+#   NEUTRAL_CTRL_DIR  one bed per chromosome, <CTRL_TAG>_<chrom>.bed. What this
+#                     project has, and it saves all 22 tasks reading a 700 Mb
+#                     file.
+#   NEUTRAL_CTRL_BED  one genome-wide bed, sliced per chromosome below. Simpler
+#                     to supply.
+if [[ -n "${NEUTRAL_CTRL_DIR:-}" && -n "${NEUTRAL_CTRL_BED:-}" ]]; then
+  echo "sfs: NEUTRAL_CTRL_DIR and NEUTRAL_CTRL_BED are both set; pick one." >&2
+  echo "      NEUTRAL_CTRL_DIR=${NEUTRAL_CTRL_DIR}" >&2
+  echo "      NEUTRAL_CTRL_BED=${NEUTRAL_CTRL_BED}" >&2
+  exit 2
+fi
+if [[ -z "${NEUTRAL_CTRL_DIR:-}" && -z "${NEUTRAL_CTRL_BED:-}" ]]; then
+  echo "sfs: the neutral controls are not set. Set NEUTRAL_CTRL_DIR to a" >&2
+  echo "      directory of ${CTRL_TAG}_<chrom>.bed files, or NEUTRAL_CTRL_BED" >&2
+  echo "      to one genome-wide bed (see config/profiles/)." >&2
+  exit 2
+fi
 : "${VCF_TMPL:?VCF_TMPL not set: the per-chromosome VCF, with {chrom} in it}"
 : "${MUTRATE_TAB:?MUTRATE_TAB not set: the per-site mutation-rate directory}"
 : "${BEDTOOLS_MOD:?BEDTOOLS_MOD not set}"
@@ -104,13 +123,17 @@ bp() { awk '{s += ($3 > $2) ? $3 - $2 : $2 - $3} END {printf "%d\n", s+0}' "$1";
 vcf="${VCF_TMPL//\{chrom\}/${chrom}}"
 vcfname="$(basename "$vcf")"
 vcfstem="${vcfname%.gz}"; vcfstem="${vcfstem%.vcf}"
-qui_bed="${NEUTRAL_CTRL_BED}/${CTRL_TAG}_${chrom}.bed"
+if [[ -n "${NEUTRAL_CTRL_DIR:-}" ]]; then
+  qui_bed="${NEUTRAL_CTRL_DIR}/${CTRL_TAG}_${chrom}.bed"; qui_whole=""
+else
+  qui_bed=""; qui_whole="$NEUTRAL_CTRL_BED"
+fi
 mutbed="${MUTRATE_TMPL//\{chrnum\}/${chrnum}}"
 
 # --------------------------------------------------------------- preflight ----
 # Everything checkable before any work is checked first: 22 array tasks should
 # not each spend an hour before hitting the same typo.
-for f in "$vcf" "$qui_bed" "$mutbed" "$POPFILE"; do
+for f in "$vcf" "${qui_bed:-$qui_whole}" "$mutbed" "$POPFILE"; do
   [[ -s "$f" ]] || { echo "sfs ${chrom}: missing or empty input: $f" >&2; exit 1; }
 done
 
@@ -289,6 +312,15 @@ for i in "${!beds[@]}"; do
   printf 'merged_chr\t%s\n' "$(bp "${tmp}/merged.bed")" >> "$lengths"
 
   echo "sfs ${chrom}: ${base} 2/5 subtract the test sites from the control candidates"
+  if [[ -n "$qui_whole" ]]; then
+    awk -v c="$chrom" '$1 == c' "$qui_whole" > "${tmp}/ctrl.bed"
+    qui_bed="${tmp}/ctrl.bed"
+    [[ -s "$qui_bed" ]] || {
+      echo "sfs ${chrom}: no control intervals on ${chrom} in ${qui_whole}" >&2
+      echo "      Controls are needed for every chromosome with test sites;" >&2
+      echo "      check the chromosome naming matches CHROMS." >&2
+      exit 1; }
+  fi
   bedtools subtract -a "$qui_bed" -b "${tmp}/merged.bed" > "${tmp}/extest.bed"
 
   echo "sfs ${chrom}: ${base} 3/5 window each merged region by +/- ${CTRL_FLANK}"
@@ -356,7 +388,9 @@ for i in "${!beds[@]}"; do
     echo "POP=${POP}"
     echo "POPFILE=${POPFILE}"
     echo "VCF_TMPL=${VCF_TMPL}"
-    echo "NEUTRAL_CTRL_BED=${NEUTRAL_CTRL_BED}"
+    echo "NEUTRAL_CTRL_DIR=${NEUTRAL_CTRL_DIR:-}"
+    echo "NEUTRAL_CTRL_BED=${NEUTRAL_CTRL_BED:-}"
+    echo "neutral_ctrl_used=${qui_bed:-$qui_whole}"
     echo "MUTRATE_TMPL=${MUTRATE_TMPL}"
     echo "BEDTOOLS_MOD=${BEDTOOLS_MOD}"
     echo "bedtools_version=$(bedtools --version 2>/dev/null || echo unknown)"
