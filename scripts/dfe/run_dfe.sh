@@ -161,13 +161,33 @@ done
 pack_mode="${DFE_PACK:-}"
 
 if [[ -z "$pack_mode" ]]; then
-  for d in "${dirs[@]}"; do
+  for i in "${!dirs[@]}"; do
+    d="${dirs[$i]}"
     if [[ -d "$d" && -n "$(ls -A "$d" 2>/dev/null)" ]]; then
       if [[ "${FORCE:-0}" == "1" ]]; then
         echo "run_dfe: FORCE=1 - overwriting the existing run in ${d}" >&2
       elif [[ "${RESUME:-0}" == "1" ]]; then
         # A timed-out array leaves a part-filled run; resuming keeps the fits
         # that finished and runs only the missing starting points.
+        #
+        # The fits already there were made against whatever spec.txt records.
+        # Resuming with a different cache, demography or spectrum would put two
+        # inferences in one directory, and large_ll.txt would rank them against
+        # each other as if they were comparable. Refuse instead.
+        if [[ -s "${d}/spec.txt" ]]; then
+          want_cache="${caches[$i]}"
+          had_cache="$(awk -F= '/^cachefile=/ {print $2}' "${d}/spec.txt")"
+          if [[ -n "$had_cache" && "$had_cache" != "$want_cache" ]]; then
+            echo "run_dfe: refusing to resume ${d} with a different cache." >&2
+            echo "      the fits there used: ${had_cache}" >&2
+            echo "      this run would use:  ${want_cache}" >&2
+            echo "      Mixing two caches in one run directory makes" >&2
+            echo "      large_ll.txt rank fits that are not comparable. Set" >&2
+            echo "      DFE_CACHE_FILE to the first path to continue that run," >&2
+            echo "      or pick a new DFE_RUN to start a clean one." >&2
+            exit 1
+          fi
+        fi
         echo "run_dfe: RESUME=1 - keeping the fits already in ${d}" >&2
       else
         echo "run_dfe: run directory exists and is not empty: ${d}" >&2

@@ -126,3 +126,43 @@ under 4 minutes. The 7-minute fits are genuine ones doing real work.
 
 Low priority: the deadline guard means a wrong estimate costs one extra
 `RESUME=1` pass, never lost work.
+
+
+## 4. Two caches got mixed inside one DFE run directory
+
+**What happened (2026-09-30).** `DFE_RUN=dfe_260929` for phastCons17way 0-5
+holds fits made against two different caches:
+
+| run | reference cache `result_dadi/...-demo_three_epoch-1` | pipeline cache `demo_260929-1-cache_260929` |
+|---|---|---|
+| gamma | 171 | 59 |
+| neugamma | 99 | 52 |
+
+**How.** The validation run set `DFE_CACHE_FILE` to the existing reference cache
+on purpose, to compare against the published result. Later resubmissions did not
+set it, so `run_dfe.sh` fell back to its default path - which by then existed,
+because the cache stage had run. `submit_dfe.sh` regenerates the packs on every
+submission, so each resubmission rewrote the command lines with the new cache,
+and `spec.txt` with them. Finished fits kept the old cache; new fits got the new
+one. Nothing warned.
+
+Worse, `spec.txt` now records only the later cache, so the provenance file
+misstates what most of the fits used.
+
+**Fixed:** `run_dfe.sh` refuses to resume when the resolved cache differs from
+`spec.txt`'s `cachefile=`, naming both paths. `FORCE=1` or a new `DFE_RUN` is
+then the way forward.
+
+- [ ] Decide what to do with `dfe_260929`. It is a validation run, not a
+      manuscript result, so the cheapest answer is to discard it and do two
+      clean runs: one pinned to the reference cache (reproduces the published
+      number) and one on the pipeline's own cache (what the package will do).
+      Comparing them answers a question worth answering anyway - whether our
+      cache gives the same DFE as the original.
+- [ ] `spec.txt` is rewritten on every pack regeneration, so it describes the
+      last submission rather than the run. Either stop rewriting it once fits
+      exist, or version it.
+- [ ] Packs are regenerated unconditionally by `submit_dfe.sh`. Stale packs from
+      a larger PACKNUMBER survive if the new names do not collide with the old
+      ones, which would run some starting points twice. Clear the old packs when
+      regenerating.

@@ -498,3 +498,17 @@ def test_resume_does_not_retry_a_previous_timeout():
     text = (root / "scripts" / "dfe" / "run_dfe.sh").read_text()
     assert "timed_out_before" in text
     assert 'timed_out_before["$_m"]=1' in text
+
+
+def test_resume_refuses_a_different_cache():
+    """Two caches in one run directory would make large_ll.txt rank fits that
+    are not comparable. The guard reads spec.txt's cachefile= and refuses."""
+    import pathlib
+    text = (pathlib.Path(__file__).resolve().parent.parent
+            / "scripts" / "dfe" / "run_dfe.sh").read_text()
+    guard = text.split('elif [[ "${RESUME:-0}" == "1" ]]', 1)[1]
+    guard = guard.split("RESUME=1 - keeping", 1)[0]
+    assert "cachefile=" in guard
+    assert "refusing to resume" in guard
+    # it must compare against the per-bed cache, not a recomputed path
+    assert 'want_cache="${caches[$i]}"' in guard
