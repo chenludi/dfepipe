@@ -24,10 +24,12 @@ So this is a gate on the input, not a judgement of the result:
     PASS   none of the above
 
 Every verdict states what happened about the assembly, including when the answer
-is "could not be determined". It cannot be determined from coordinates: hg19 and
-hg38 differ by a few hundred kb on most chromosomes, so an hg19 bed sits inside
-hg38's extents and no coordinate test sees it. A silent PASS would read as "the
-build was verified", which is the one thing this cannot do.
+is "could not be determined". What the check actually does is compare each
+chromosome's largest coordinate against that chromosome's last masked base in
+MASK_BED, allowing BEYOND_MASK_SLACK of overrun - so it catches only a gross
+mismatch, and cannot distinguish two assemblies whose coordinates differ by less
+than that slack. A silent PASS would read as "the build was verified", which is
+the one thing this cannot do.
 
     python3 check_bed.py --chroms "1 2 3 ..." [--ctrl-flank 25000]
                         [--mask-bed <path>] [--out <dir> --run <key>] <bed>...
@@ -43,7 +45,10 @@ from conf import conf  # noqa: E402
 
 CHECK_TEMPLATE = "check_bed.%s.tsv"
 # A coordinate this far past the last masked base on its chromosome is more
-# likely a different assembly than a real interval.
+# likely a different assembly than a real interval. The figure is a judgement,
+# not a measurement: the mask does not extend to the end of a chromosome, so some
+# slack is needed, and 1 Mb is loose enough not to fire on a normal bed. It has
+# not been calibrated against a known-wrong-assembly bed.
 BEYOND_MASK_SLACK = 1_000_000
 
 
@@ -205,9 +210,11 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
                 % "; ".join(beyond[:4]))
             assembly = "gross mismatch against MASK_BED"
         else:
-            assembly = ("no gross mismatch against MASK_BED - but this CANNOT "
-                        "confirm the build, since hg19 coordinates fall inside "
-                        "hg38 extents. Confirm the assembly by hand")
+            assembly = ("no coordinate runs more than %d bp past its "
+                        "chromosome's last masked base. That is all this checks, "
+                        "so it CANNOT confirm the build - only a mismatch larger "
+                        "than that slack would show. Confirm the assembly by hand"
+                        % BEYOND_MASK_SLACK)
     else:
         assembly = ("not checked at all: no readable MASK_BED. Confirm the "
                     "assembly by hand")

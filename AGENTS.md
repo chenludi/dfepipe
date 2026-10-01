@@ -53,7 +53,7 @@ wrong answers rather than errors.
 
 | ask | why it matters |
 |---|---|
-| **Which assembly?** | All reference data is GRCh38. An hg19 bed produces plausible, wrong numbers. Nothing lifts over. |
+| **Which assembly?** | All reference data is GRCh38. A bed from another build produces plausible, wrong numbers. Nothing lifts over, and **the preflight cannot detect it** - it only catches a coordinate running more than 1 Mb past the mask. This one is a human answer. |
 | **`chr1` or `1`?** | Must be `chr`-prefixed. `scripts/checks/check_bed.py` now catches this in a second; before, it cost the whole sfs array. |
 | **Autosomes only?** | The pipeline analyses chr1–chr22. chrX/chrY intervals survive prep and are **dropped silently at concat**, so the reported length is not the bed's length. The preflight warns with the bp cost. |
 | **How long are the intervals?** | An interval longer than `2 × CTRL_FLANK` (50 kb) has its control window entirely inside itself, where controls cannot be, so it can **never** find one and is dropped. Fine for a few-hundred-bp cCRE set; serious for long domains. |

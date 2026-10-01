@@ -180,13 +180,16 @@ def test_a_warning_does_not_stop_the_chain(tmp_path):
 # ------------------------------------------- the assembly is always stated --
 
 def test_a_clean_bed_still_says_the_build_was_not_confirmed(tmp_path):
-    """A silent PASS would read as "the assembly was verified", which is the one
-    thing this cannot do: hg19 coordinates sit inside hg38's extents, so no
-    coordinate test sees them. The verdict must say so every time."""
+    """A silent PASS would read as "the assembly was verified", which this cannot
+    do: it compares against the mask with 1 Mb of slack, so only a gross
+    mismatch shows. The verdict must say so every time, and must claim no more
+    than the code actually checks."""
     mask = write(tmp_path, "mask.bed", "chr1\t0\t1000000\n")
     r = one(tmp_path, "chr1\t100\t200\n", mask=mask)
     assert r["status"] == "PASS"
     assert "CANNOT confirm the build" in r["assembly"]
+    assert "last masked base" in r["assembly"]      # says what it did check
+    assert "hg19" not in r["assembly"]              # claims nothing unsourced
 
 
 def test_every_row_carries_an_assembly_verdict(tmp_path):

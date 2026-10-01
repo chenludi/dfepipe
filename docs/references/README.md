@@ -18,5 +18,12 @@ Claims in this package that still need a source quoted here:
   neutral (`setup/patches/dadi_DFE_PDFs.patch`). Cited to the patch itself.
 - the `three_epoch` model's definition and parameter order, currently taken from
   dadi's own source.
+- **Resolved by removal, 2026-10-01:** `check_bed.py` asserted that "hg19
+  coordinates fall inside hg38 extents". That was written from recall, with no
+  source, and it is not reliably true - the two builds differ in both directions
+  by chromosome. The message now states only what the code checks: a coordinate
+  more than `BEYOND_MASK_SLACK` past the mask. If a real assembly check is ever
+  wanted, it needs per-build chromosome lengths from the assembly reports, quoted
+  here.
 
 Nothing here yet, which is why the list above exists.
