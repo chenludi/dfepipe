@@ -118,8 +118,11 @@ def test_an_interval_just_under_the_window_does_not(tmp_path):
 def test_unsorted_and_overlapping_intervals_warn(tmp_path):
     assert "out of coordinate order" in one(
         tmp_path, "chr1\t500\t600\nchr1\t100\t200\n")["reason"]
-    assert "overlap the one before" in one(
-        tmp_path, "chr1\t100\t200\nchr1\t150\t400\n")["reason"]
+    r = one(tmp_path, "chr1\t100\t200\nchr1\t150\t400\n")["reason"]
+    assert "overlap the one before" in r
+    # prep merges, so an overlapping group gets ONE window, not one each. The
+    # warning used to claim the opposite.
+    assert "ONE control window" in r and "run_prep.sh:112" in r
 
 
 def test_a_coordinate_far_past_the_mask_warns_as_out_of_range(tmp_path):

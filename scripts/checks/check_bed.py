@@ -194,9 +194,11 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
     overlaps = sum(stats[c]["overlaps"] for c in usable)
     if overlaps:
         reasons.append(
-            "%d interval(s) overlap the one before. With MERGE_BEFORE_WINDOW=0 "
-            "each is windowed separately, so overlapping intervals are counted "
-            "once but windowed twice" % overlaps)
+            "%d interval(s) overlap the one before. prep MERGES its output "
+            "(run_prep.sh:112), so each overlapping group becomes one interval "
+            "and gets ONE control window, centred on the merged span - not one "
+            "window per input interval. Merge them yourself first if you want "
+            "control over where those midpoints fall" % overlaps)
 
     # Coordinates grossly out of range: a corrupt file, or an entirely different
     # genome. Not an assembly check - see OUT_OF_RANGE_SLACK.
