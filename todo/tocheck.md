@@ -166,3 +166,29 @@ acceptance test for the finished package - see `todo/final_clean_rerun.md`.
       a larger PACKNUMBER survive if the new names do not collide with the old
       ones, which would run some starting points twice. Clear the old packs when
       regenerating.
+
+
+## 5. RESUME=1 started a fresh run instead of resuming
+
+**What happened (2026-09-30).** Adding `CACHE_MARKER` to the DFE run directory
+name (`<CACHE_RUN>-<CACHE_MARKER>-<pdf>-<DFE_RUN>`, questions.md item 4) moved
+where `run_dfe.sh` looks. The arrays of that morning ran a cluster copy from
+before the rename, so their 151 neugamma fits landed in
+`cache_260929-neugamma-dfe_260929`, while a later `RESUME=1` submission looked
+for `cache_260929-1-neugamma-dfe_260929`, found nothing, and began from scratch.
+`run_bestdfe.sh` then read those 9 orphan fits and reported ll=-6397 where the
+real answer is -610.
+
+Nothing warned at any point: an empty directory is indistinguishable from a new
+run, and "resumed" output looks like success.
+
+**Fixed:** `run_dfe.sh` now fails when `RESUME=1` is set and the run directory is
+absent or empty, naming the keys to check. The real runs were renamed into the
+marker convention and the 9-fit directory kept as
+`...-dfe_260929.aborted-14984282`.
+
+- [ ] Nothing reconciles a run directory against the config that made it. The
+      cache guard (item 4) and this one are both after-the-fact patches for the
+      same gap: `spec.txt` records the inputs but nothing checks it on re-entry.
+      A single `verify_spec` step, run whenever a stage re-enters an existing run
+      directory, would replace both.

@@ -512,3 +512,12 @@ def test_resume_refuses_a_different_cache():
     assert "refusing to resume" in guard
     # it must compare against the per-bed cache, not a recomputed path
     assert 'want_cache="${caches[$i]}"' in guard
+
+
+def test_resume_with_nothing_to_resume_fails():
+    """RESUME=1 into an empty directory silently started a fresh run, which
+    abandoned 151 fits sitting under the previous naming convention."""
+    import pathlib
+    text = (pathlib.Path(__file__).resolve().parent.parent
+            / "scripts" / "dfe" / "run_dfe.sh").read_text()
+    assert "nothing to resume in" in text

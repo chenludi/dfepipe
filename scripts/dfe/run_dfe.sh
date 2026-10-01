@@ -163,6 +163,18 @@ pack_mode="${DFE_PACK:-}"
 if [[ -z "$pack_mode" ]]; then
   for i in "${!dirs[@]}"; do
     d="${dirs[$i]}"
+    # RESUME=1 with nothing to resume means the run directory is not the one
+    # expected - a changed run key, CACHE_MARKER or naming convention. Starting
+    # from scratch there looks like success and silently abandons the fits that
+    # already exist somewhere else, so say so instead.
+    if [[ "${RESUME:-0}" == "1" ]] \
+       && [[ ! -d "$d" || -z "$(ls -A "$d" 2>/dev/null)" ]]; then
+      echo "run_dfe: RESUME=1 but there is nothing to resume in ${d}" >&2
+      echo "      Either the directory is new - check DFE_RUN, CACHE_RUN and" >&2
+      echo "      CACHE_MARKER against the run you meant - or the fits are" >&2
+      echo "      under a different name. Drop RESUME=1 to start a fresh run." >&2
+      exit 1
+    fi
     if [[ -d "$d" && -n "$(ls -A "$d" 2>/dev/null)" ]]; then
       if [[ "${FORCE:-0}" == "1" ]]; then
         echo "run_dfe: FORCE=1 - overwriting the existing run in ${d}" >&2
