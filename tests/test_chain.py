@@ -45,12 +45,37 @@ def order(r):
 
 # ------------------------------------------------------------------- ordering --
 
-def test_the_whole_chain_is_submitted_in_dependency_order(tmp_path):
+def test_phase_1_stops_before_cache_and_launches_the_next(tmp_path):
+    """submit_cache.sh reads best_inference.txt at submit time, so cache cannot
+    go in before bestfit has run. The phase ends with a launcher instead."""
     r = dry(tmp_path)
     assert r.returncode == 0, r.stderr
-    assert order(r) == ["prep", "sfs", "concat", "demo", "bestfit", "cache",
-                        "fitneu", "dfe", "bestdfe_gamma", "dfe",
+    assert order(r) == ["prep", "sfs", "concat", "demo", "bestfit",
+                        "launch:cache"]
+    assert "phase 1 submitted" in r.stdout
+
+
+def test_phase_2_is_cache_then_a_launcher(tmp_path):
+    """submit_dfe.sh generates the packs, which needs the spectrum and Na, and
+    the array size depends on how many packs result."""
+    r = dry(tmp_path, FROM="cache")
+    assert order(r) == ["cache", "launch:dfe"]
+    assert "phase 2 submitted" in r.stdout
+
+
+def test_phase_3_runs_to_the_end(tmp_path):
+    r = dry(tmp_path, FROM="dfe")
+    assert order(r) == ["fitneu", "dfe", "bestdfe_gamma", "dfe",
                         "bestdfe_neugamma", "summary", "bestpdf"]
+    assert "launch" not in r.stdout + r.stderr
+
+
+def test_the_launcher_passes_the_next_FROM_and_the_run_keys(tmp_path):
+    """It re-runs this script, so it must carry enough to resume the same run."""
+    r = dry(tmp_path)
+    line = [l for l in (r.stdout + r.stderr).splitlines()
+            if "launch:cache" in l and "qsub" in l][0]
+    assert "FROM=cache" in line and "run_all.sh" in line
 
 
 def test_nothing_is_submitted_in_dry_run(tmp_path):
@@ -64,8 +89,7 @@ def test_each_stage_holds_on_the_one_before(tmp_path):
     text = r.stdout + r.stderr
     for stage, held in [("sfs", "DRY-prep"), ("concat", "DRY-sfs"),
                         ("demo", "DRY-concat"), ("bestfit", "DRY-demo"),
-                        ("cache", "DRY-bestfit"), ("fitneu", "DRY-cache"),
-                        ("bestpdf", "DRY-summary")]:
+                        ("launch:cache", "DRY-bestfit")]:
         line = [l for l in text.splitlines()
                 if re.match(r"\s+%s\s+(TERSE|qsub)" % re.escape(stage), l)]
         assert line, stage
@@ -74,7 +98,7 @@ def test_each_stage_holds_on_the_one_before(tmp_path):
 
 def test_summary_waits_for_every_pdf_and_the_null(tmp_path):
     """It reads all of them, so it must not start when one is still running."""
-    r = dry(tmp_path)
+    r = dry(tmp_path, FROM="dfe")
     line = [l for l in (r.stdout + r.stderr).splitlines()
             if re.match(r"\s+summary\s+qsub", l)][0]
     for held in ("DRY-fitneu", "DRY-bestdfe_gamma", "DRY-bestdfe_neugamma"):
@@ -83,8 +107,8 @@ def test_summary_waits_for_every_pdf_and_the_null(tmp_path):
 
 def test_every_stage_gates_on_its_upstream(tmp_path):
     """Including the arrays: a FAILed prep must not cost 22 sfs tasks."""
-    r = dry(tmp_path)
-    text = r.stdout + r.stderr
+    text = dry(tmp_path).stdout + dry(tmp_path).stderr
+    text += dry(tmp_path, FROM="cache").stderr + dry(tmp_path, FROM="dfe").stderr
     for stage, gate in [("sfs", "GATE=prep"), ("demo", "GATE=sfs"),
                         ("cache", "GATE=demo"), ("dfe", "GATE=cache")]:
         line = [l for l in text.splitlines()
@@ -105,7 +129,7 @@ def test_prep_gates_on_nothing(tmp_path):
 @pytest.mark.parametrize("start,expected_first", [
     ("prep", "prep"), ("sfs", "sfs"), ("demo", "demo"),
     ("cache", "cache"), ("dfe", "fitneu"), ("summary", "summary"),
-])
+])  # noqa: E501
 def test_FROM_starts_at_that_stage(tmp_path, start, expected_first):
     r = dry(tmp_path, FROM=start)
     assert r.returncode == 0, r.stderr
@@ -113,10 +137,9 @@ def test_FROM_starts_at_that_stage(tmp_path, start, expected_first):
     assert got and got[0] == expected_first, (start, got)
 
 
-def test_FROM_still_runs_everything_after_it(tmp_path):
-    r = dry(tmp_path, FROM="cache")
-    assert order(r) == ["cache", "fitneu", "dfe", "bestdfe_gamma", "dfe",
-                        "bestdfe_neugamma", "summary", "bestpdf"]
+def test_FROM_summary_skips_straight_to_the_table(tmp_path):
+    r = dry(tmp_path, FROM="summary")
+    assert order(r) == ["summary", "bestpdf"]
 
 
 def test_an_unknown_FROM_is_refused(tmp_path):

@@ -8,8 +8,27 @@
 #                 prep sfs demo cache dfe summary. The stages before it must
 #                 already have finished for the same run keys.
 #
-# Every job goes in at once, ordered by `qsub -hold_jid`, so there is nothing to
-# babysit and nothing to re-run by hand. The order is forced by the data:
+# Submitted in three PHASES, because two stages cannot be submitted before the
+# stage above them has actually run:
+#
+#   submit_cache.sh reads best_inference.txt (:58) to find the demography
+#   submit_dfe.sh   generates the command packs (:144), which needs the test
+#                   spectrum and Na from the demographic fit
+#
+# An array's size must be known at qsub time, so neither can be deferred into
+# the job. Instead each phase ends by submitting a LAUNCHER job, held on the
+# phase's last job, which re-runs this script with the next FROM. The chain
+# submits itself forward:
+#
+#   phase 1  FROM=prep    prep sfs concat demo bestfit   -> launcher FROM=cache
+#   phase 2  FROM=cache   cache                          -> launcher FROM=dfe
+#   phase 3  FROM=dfe     fitneu dfe bestdfe summary bestpdf
+#
+# So `qstat` shows only the current phase. That is the cost of a dynamically
+# sized array; the alternative is submitting a dfe array of the wrong size.
+#
+# Within a phase every job goes in at once, ordered by `qsub -hold_jid`. The
+# order is forced by the data:
 #
 #   prep      array over beds          filters each bed to the analysable sites
 #   sfs       array over chromosomes   per-chromosome spectra and mutation tables
@@ -39,6 +58,12 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(dirname "$(dirname "$here")")}"
 # shellcheck source=../../config/pipeline.conf
 source "${REPO_DIR}/config/pipeline.conf"
+# qsub is not on PATH in a non-interactive shell - which is how this is normally
+# run, over ssh or from a job. The submit_*.sh scripts each call this; the chain
+# qsubs its own step jobs, so it needs it too.
+# shellcheck source=../../config/env.sh
+source "${REPO_DIR}/config/env.sh"
+[[ "${DRY_RUN:-0}" == "1" ]] || ensure_scheduler
 
 : "${OUT:?OUT not set}"
 : "${PREP_RUN:?PREP_RUN not set}"
@@ -143,6 +168,47 @@ array() {
     bash "${REPO_DIR}/scripts/sge/submit_${name}.sh" "$@"
 }
 
+# The phase each stage belongs to, and which FROM starts the next one. A phase
+# boundary sits wherever a submit script needs the previous stage's output.
+next_phase_from() {
+  case "$from" in
+    prep|sfs|demo) echo cache ;;
+    cache)         echo dfe ;;
+    *)             echo "" ;;
+  esac
+}
+
+# Submit the launcher for the next phase: this same script, FROM the next phase,
+# as a job held on the last job of this one. Nothing is passed but FROM - the
+# launcher re-reads the config, so there is one config read per phase.
+launch_next() {
+  local hold="$1" nextfrom="$2"
+  local env="REPO_DIR=${REPO_DIR},OUT=${OUT},PREP_RUN=${PREP_RUN}"
+  env="${env},FS_RUN=${FS_RUN},DEMO_RUN=${DEMO_RUN},DEMO_MODEL=${DEMO_MODEL}"
+  env="${env},CACHE_RUN=${CACHE_RUN},CACHE_MARKER=${CACHE_MARKER}"
+  env="${env},DFE_RUN=${DFE_RUN},SUMMARY_RUN=${SUMMARY_RUN},FROM=${nextfrom}"
+  env="${env},PDFS=${PDFS},PACKNUMBER=${PACKNUMBER},DFE_TIMEOUT=${DFE_TIMEOUT}"
+  env="${env},SGE_DFE_RT=${SGE_DFE_RT}"
+  [[ -n "${FORCE:-}" ]] && env="${env},FORCE=${FORCE}"
+  [[ -n "${RESUME:-}" ]] && env="${env},RESUME=${RESUME}"
+  [[ -n "${DFE_CACHE_FILE:-}" ]] && env="${env},DFE_CACHE_FILE=${DFE_CACHE_FILE}"
+
+  if [[ "$dry" == "1" ]]; then
+    note "launch:${nextfrom}" "qsub -N chain_${nextfrom}_${SUMMARY_RUN} -hold_jid ${hold} -- run_all.sh FROM=${nextfrom}"
+    echo "DRY-launch-${nextfrom}"
+    return 0
+  fi
+  qsub -terse \
+    -N "chain_${nextfrom}_${SUMMARY_RUN}" \
+    -cwd -j y -V \
+    -o "${log_dir}/launch_${nextfrom}.\$JOB_ID.log" \
+    -l h_rt="00:30:00",h_data="4G" \
+    -pe shared 1 \
+    -hold_jid "${hold}" \
+    -v "$env" \
+    "${REPO_DIR}/scripts/chains/run_all.sh" "${beds[@]}" | tail -1
+}
+
 # A job id from `qsub -terse`: an array prints `12345.1-22:1`, a plain job
 # `12345`. -hold_jid wants the bare id.
 bare() { local id="${1%%.*}"; echo "${id%% *}"; }
@@ -180,10 +246,28 @@ if want demo; then
   jid="$jid_bestfit"
 fi
 
+# Phase 1 ends here: submit_cache.sh reads best_inference.txt, which bestfit
+# has not written yet.
+if [[ "$from" != cache && "$from" != dfe && "$from" != summary ]]; then
+  jid_launch="$(bare "$(launch_next "$jid" cache)")"
+  say "launch:cache" "$jid_launch"
+  echo "run_all: phase 1 submitted. The rest follows automatically; watch"
+  echo "         ${log_dir}/launch_cache.*.log"
+  exit 0
+fi
+
 if want cache; then
   jid_cache="$(bare "$(array cache "$jid" "$chk_demo" demo "${beds[@]}")")"
   say cache "$jid_cache"
   jid="$jid_cache"
+  # Phase 2 ends here: submit_dfe.sh generates the packs, which needs the
+  # spectrum and Na, and the array size depends on how many packs result.
+  if [[ "$from" == cache ]]; then
+    jid_launch="$(bare "$(launch_next "$jid_cache" dfe)")"
+    say "launch:dfe" "$jid_launch"
+    echo "run_all: phase 2 submitted. Watch ${log_dir}/launch_dfe.*.log"
+    exit 0
+  fi
 fi
 
 dfe_last=()
