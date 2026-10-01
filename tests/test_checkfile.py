@@ -26,8 +26,11 @@ def test_missing_columns_are_blank_not_dropped(tmp_path):
 GATE = str(ROOT / "scripts/checks/gate.py")
 
 
-def run_gate(*args):
-    return subprocess.run(["python3", GATE, *args], capture_output=True, text=True)
+def run_gate(*args, env=None):
+    import os
+    return subprocess.run(["python3", GATE, *args], capture_output=True,
+                          text=True,
+                          env=dict(os.environ, **env) if env else None)
 
 
 def test_gate_blocks_on_fail(tmp_path):
@@ -73,18 +76,28 @@ def test_gate_silent_when_all_pass(tmp_path):
     assert r.stdout == ""
 
 
-def test_gate_on_missing_file_exits_zero(tmp_path):
+def test_gate_blocks_on_a_missing_check_file(tmp_path):
+    """A gate runs inside a chain, where the upstream stage has just finished.
+    No check file therefore means its check crashed - which is how a TypeError
+    in check_summary.py went unnoticed, since a stage only warns when its own
+    check dies."""
     r = run_gate(str(tmp_path / "absent.tsv"), "demo")
-    assert r.returncode == 0
-    assert "no check file" in r.stderr
+    assert r.returncode == 1
+    assert "wrote no check file" in r.stderr
 
 
-def test_gate_on_empty_file_exits_zero(tmp_path):
+def test_gate_blocks_on_an_empty_check_file(tmp_path):
     f = tmp_path / "empty.tsv"
     f.write_text("")
     r = run_gate(str(f), "demo")
+    assert r.returncode == 1
+    assert "wrote no check file" in r.stderr
+
+
+def test_gate_force_overrides_a_missing_check_file(tmp_path):
+    r = run_gate(str(tmp_path / "absent.tsv"), "demo", env={"FORCE": "1"})
     assert r.returncode == 0
-    assert "no check file" in r.stderr
+    assert "continuing unverified" in r.stderr
 
 
 def test_gate_survives_tab_and_newline_in_reason(tmp_path):

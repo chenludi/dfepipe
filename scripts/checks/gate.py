@@ -3,7 +3,9 @@
 
 Usage: python3 gate.py <check_file> <upstream_stage_name>
 
-FAIL blocks; WARN does not. A FAIL means the data is broken - a chromosome
+FAIL blocks, and so does a missing check file - inside a chain the upstream
+stage has just run, so no check file means its check crashed rather than that
+checking was skipped. WARN does not block. A FAIL means the data is broken - a chromosome
 missing in error, too few SNPs, a cache with too few usable spectra, a model
 giving no probability where variants are observed - and carrying that into a
 ten-hour job wastes a day, so the gate exits non-zero and the chain stops.
@@ -41,9 +43,22 @@ def main(argv):
     path, stage = argv[1], argv[2]
 
     if not os.path.isfile(path) or os.path.getsize(path) == 0:
-        sys.stderr.write("WARNING: no check file for upstream stage "
-                         "'%s' (%s); proceeding unverified\n" % (stage, path))
-        return 0
+        # Blocking, like a FAIL. A gate is only consulted inside a chain, where
+        # the upstream stage has just run and must have written one - so an
+        # absent file means its check crashed, not that checking was skipped.
+        # It used to proceed with a warning, which is how a TypeError in
+        # check_summary.py stayed invisible: the stage warns and exits 0 when
+        # its check dies, so nothing downstream could tell a crashed check from
+        # a clean one.
+        sys.stderr.write("ERROR: upstream stage '%s' wrote no check file "
+                         "(%s)\n" % (stage, path))
+        sys.stderr.write("         Its check did not run, so nothing verified "
+                         "that stage. Re-run it and read the check output, or "
+                         "set FORCE=1 to continue unverified.\n")
+        if os.environ.get("FORCE") == "1":
+            sys.stderr.write("         FORCE=1: continuing unverified\n")
+            return 0
+        return 1
 
     status = read_status(path)
     failed = [i for i, s in status.items() if s == "FAIL"]
