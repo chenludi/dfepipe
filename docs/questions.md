@@ -81,15 +81,17 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
 
 ### Outcome vocabulary and verdicts — resolved 2026-09-30
 
-- `fitted` (wrote a `.bestfits`) and `converged` (that file carries a converged
-  block) are now separate. The convergence warning uses `converged`, which is
-  the stricter number; keying it on `fitted` was about 1.6x too generous.
+- `bestfit` (wrote a `.bestfits`) and `converged` (that file carries a converged
+  block) are now separate. The convergence warning uses `converged`, the
+  stricter number; keying it on `bestfit` was about 1.6x too generous.
 - `DFE_MIN_CONVERGED_N = 10` **stays**. Few converged fits is worth flagging
   whatever the fraction says: it usually means poor starting points, a hard
   surface, or a grid the optimiser never explored.
-- Every fit exiting non-zero is now a FAIL, not a WARN. That pattern is
-  systematic — wrong cache path, bad `--demo-popt`, broken environment — not a
-  hard likelihood surface.
+- A fit that never started optimising (no `.opts`) is `error`, and every
+  starting point erroring is a FAIL: that is systematic — missing cache,
+  unreadable `--demo-popt`, wrong environment — not a hard likelihood surface.
+  A `timeout` is `fail_optimize`, not worth retrying, and `RESUME=1` covers only
+  `not_run`.
 - `run_concat.sh` refuses when any chromosome has no usable `.fs`/`.tab` rather
   than quietly leaving it out; `CHROMS` is the deliberate way to run a subset.
 
@@ -115,7 +117,8 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
 12. Four "Error: ... does not exist" messages whose `exit 1` is commented out,
     so a missing input surfaces later as a traceback.
 13. `piperef_stddfe_8_plotdfe.sh` has no `neugammazero` branch and exits 1 —
-    the pdf step 7 was extended to fit.
+    the pdf step 7 was extended to fit. Moot for us: neugammazero is out of the
+    pipeline (`todo/toimplement_pdf_neugammazero.md`).
 14. `plot_converge_dfe_0430.py`: `:370` IndexErrors when <=2 starting points
     converged; `:404` intends a `large_ll.txt` backup that never happens; `:494`
     rounds figure names to 3 decimals so near-identical fits overwrite each
