@@ -62,6 +62,7 @@ source "${REPO_DIR}/config/env.sh"
 : "${CACHE_RUN:?CACHE_RUN not set: it keys the dfe run directory}"
 : "${DFE_RUN:?DFE_RUN not set}"
 : "${CTRL_TAG:?CTRL_TAG not set}"
+: "${ROULETTE_SCALE:?ROULETTE_SCALE not set}"
 : "${NUM_CONVERGENCE:?NUM_CONVERGENCE not set}"
 : "${RESID_RARE_MAX_COUNT:?RESID_RARE_MAX_COUNT not set}"
 : "${RESID_MAX_RARE_WARN:?RESID_MAX_RARE_WARN not set}"
@@ -165,7 +166,8 @@ for i in "${!beds[@]}"; do
 
   echo "run_fitneu: ${base}: neutral likelihood of $(basename "${test_fs[$i]}")"
   if python3 - "$d" "${test_fs[$i]}" "${ctrl_fs[$i]}" "${popts[$i]}" \
-               "$demo_func" "${mut_t[$i]}" "${mut_c[$i]}" "${PNG:-0}" <<'PY'
+               "$demo_func" "${mut_t[$i]}" "${mut_c[$i]}" "${PNG:-0}" \
+               "$ROULETTE_SCALE" <<'PY'
 """The neutral log-likelihood, a faithful port of dadi_cal_ll_neu_0723.py.
 
 Differences are listed in run_fitneu.sh's header. The expected spectrum is
@@ -184,12 +186,8 @@ import dadi.Demographics1D                # noqa: E402
 import dadi.Numerics                      # noqa: E402
 
 dirout, testfs, ctrlfs, demopopt, model, testfsmut, ctrlfsmut, png = sys.argv[1:9]
+ROULETTE_SCALE = float(sys.argv[9])
 want_png = png not in ("", "0", "no", "false")
-
-# Roulette's per-site rates are stored scaled; 1.015e-7 converts a table value
-# into a diploid per-site rate (dadi_cal_ll_neu_0723.py:155).
-ROULETTE_SCALE = 1.015e-7
-
 
 def die(msg):
     sys.stderr.write("run_fitneu: %s\n" % msg)
