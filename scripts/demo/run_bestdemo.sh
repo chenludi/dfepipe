@@ -2,7 +2,7 @@
 # demo, the pick: choose the maximum-likelihood fit, write best_inference.txt,
 # and draw the diagnostics.
 #
-#   bash scripts/demo/run_bestfit.sh <bed> [bed...]
+#   bash scripts/demo/run_bestdemo.sh <bed> [bed...]
 #
 # <bed> is the ORIGINAL bed, the same argument prep, sfs and run_demo.sh took.
 # Run it once every array task of run_demo.sh has finished.
@@ -69,7 +69,7 @@ source "${REPO_DIR}/config/env.sh"
 : "${ROULETTE_SCALE:?ROULETTE_SCALE not set}"
 
 if [[ $# -eq 0 ]]; then
-  echo "usage: run_bestfit.sh <bed> [bed...]" >&2
+  echo "usage: run_bestdemo.sh <bed> [bed...]" >&2
   exit 2
 fi
 
@@ -78,7 +78,7 @@ case "$DEMO_MODEL" in
   two_epoch)    dadi_model="two_epoch" ;;
   growth)       dadi_model="growth" ;;
   bottlegrowth) dadi_model="bottlegrowth_1d" ;;
-  *) echo "run_bestfit: DEMO_MODEL='${DEMO_MODEL}' is not supported" >&2; exit 2 ;;
+  *) echo "run_bestdemo: DEMO_MODEL='${DEMO_MODEL}' is not supported" >&2; exit 2 ;;
 esac
 
 activate_conda
@@ -98,24 +98,24 @@ for bed in "$@"; do
 
   for f in "$data_fs" "$mutfile"; do
     [[ -s "$f" ]] || {
-      echo "run_bestfit: missing sfs output for '${base}': ${f}" >&2
+      echo "run_bestdemo: missing sfs output for '${base}': ${f}" >&2
       echo "      Run scripts/sfs/run_concat.sh first, or check FS_RUN." >&2
       failed=1; continue 2; }
   done
   if ! compgen -G "${d}/*.InferDM.bestfits" > /dev/null; then
-    echo "run_bestfit: no fits for '${base}' in ${d}" >&2
+    echo "run_bestdemo: no fits for '${base}' in ${d}" >&2
     echo "      Run scripts/demo/run_demo.sh (or scripts/sge/submit_demo.sh)" >&2
     echo "      first, or check DEMO_RUN." >&2
     failed=1; continue
   fi
 
-  echo "run_bestfit: ${base}: picking the maximum-likelihood fit in ${d}"
+  echo "run_bestdemo: ${base}: picking the maximum-likelihood fit in ${d}"
   if ! python3 - "$d" "$dadi_model" "$DEMO_MODEL" "$data_fs" "$mutfile" \
                 "$DEMO_LL_CUTOFF" "${PNG:-0}" "$ROULETTE_SCALE" <<'PY'
 """Pick the maximum-likelihood demographic fit, write best_inference.txt, plot.
 
 A faithful port of plot_bestll_demo_args_0421.py; the differences are listed in
-run_bestfit.sh's header.
+run_bestdemo.sh's header.
 """
 import glob
 import os
@@ -136,7 +136,7 @@ ROULETTE_SCALE = float(sys.argv[8])
 
 
 def die(msg):
-    sys.stderr.write("run_bestfit: %s\n" % msg)
+    sys.stderr.write("run_bestdemo: %s\n" % msg)
     sys.exit(1)
 
 
@@ -213,7 +213,7 @@ for path in files:
             break
         if names is None or len(values) != len(names):
             sys.stderr.write(
-                "run_bestfit: %s has %d values but %s columns; skipping\n"
+                "run_bestdemo: %s has %d values but %s columns; skipping\n"
                 % (os.path.basename(path), len(values),
                    len(names) if names else "no"))
             break
@@ -249,7 +249,7 @@ cutoff = -cutoff_input if cutoff_input > 0 else cutoff_input
 if cutoff > max(lls):
     cutoff = max(lls) - 100
     sys.stderr.write(
-        "run_bestfit: the cutoff %g is stricter than the best fit %g; using "
+        "run_bestdemo: the cutoff %g is stricter than the best fit %g; using "
         "max(ll) - 100 = %g instead\n" % (-cutoff_input, max(lls), cutoff))
 
 kept = {k: v for k, v in data_dict.items() if v["ll"] > cutoff}
@@ -280,7 +280,7 @@ with open(os.path.join(demo_dir, "maxll_demoparam_file.txt"), "w") as fh:
     fh.write("%s %s %s%s.InferDM.bestfits %s %s\n"
              % (demo_dir, model, model, best_key, mutation_ctrl_diploid,
                 best["theta"]))
-print("run_bestfit: max_ll_key=%s ll=%s Na=%s" % (best_key, best["ll"], best["Na"]))
+print("run_bestdemo: max_ll_key=%s ll=%s Na=%s" % (best_key, best["ll"], best["Na"]))
 
 # ------------------------------------------------------------ ll ~ parameter --
 second = kept[sorted(kept, key=lambda k: kept[k]["ll"], reverse=True)[1]] \
@@ -347,7 +347,7 @@ dadi.Inference.optimally_scaled_sfs(expected, observed).to_file(
     os.path.join(demo_dir, "bestfit_model.fs"))
 PY
   then
-    echo "run_bestfit: ${base}: best-fit selection failed" >&2
+    echo "run_bestdemo: ${base}: best-fit selection failed" >&2
     failed=1
     continue
   fi
@@ -358,7 +358,7 @@ PY
   key="$(awk -F: '/^max_ll_key:/ {print $2}' "${d}/best_inference.txt")"
   bestfits="$(ls -1 "${d}"/*."${key}".InferDM.bestfits 2>/dev/null | head -1 || true)"
   if [[ -z "$bestfits" ]]; then
-    echo "run_bestfit: ${base}: no .bestfits for max_ll_key=${key}" >&2
+    echo "run_bestdemo: ${base}: no .bestfits for max_ll_key=${key}" >&2
     failed=1
     continue
   fi
@@ -368,7 +368,7 @@ PY
     dadi-cli Plot --fs "$data_fs" --demo-popt "$bestfits" \
       --output "${d}/sfs_bestfit.png" --model "$dadi_model" --nomisid
   fi
-  echo "run_bestfit: ${base}: wrote ${d}/sfs_bestfit.pdf"
+  echo "run_bestdemo: ${base}: wrote ${d}/sfs_bestfit.pdf"
 done
 
 # ---------------------------------------------------------------- checkpoint --

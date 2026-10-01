@@ -18,7 +18,7 @@ from scripts.checks.check_demo import (
     read_fs,
 )
 
-# pipeline.conf's RESID_*/G2_* defaults, the values run_bestfit.sh passes through.
+# pipeline.conf's RESID_*/G2_* defaults, the values run_bestdemo.sh passes through.
 CFG = {
     "max_rare_warn": 25.0,
     "max_rare_fail": 40.0,

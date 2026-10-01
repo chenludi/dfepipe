@@ -19,17 +19,15 @@ So this is a gate on the input, not a judgement of the result:
           entirely inside them, where controls cannot be, so they can never
           find one
     WARN  unsorted, or overlapping intervals
-    WARN  a coordinate beyond the end of that chromosome in MASK_BED, which
-          usually means the bed is not the assembly the references are
+    WARN  a coordinate far beyond that chromosome's last masked base - a corrupt
+          bed, or one from a different genome
     PASS   none of the above
 
-Every verdict states what happened about the assembly, including when the answer
-is "could not be determined". What the check actually does is compare each
-chromosome's largest coordinate against that chromosome's last masked base in
-MASK_BED, allowing BEYOND_MASK_SLACK of overrun - so it catches only a gross
-mismatch, and cannot distinguish two assemblies whose coordinates differ by less
-than that slack. A silent PASS would read as "the build was verified", which is
-the one thing this cannot do.
+The genome build is NOT checked, and the summary says so every time rather than
+letting a PASS imply it was. Coordinates are compared against the mask only to
+catch something grossly out of range - a corrupt bed, or one from a different
+genome. Two builds of the same genome differ by far less than that, so no
+coordinate test here can tell them apart.
 
     python3 check_bed.py --chroms "1 2 3 ..." [--ctrl-flank 25000]
                         [--mask-bed <path>] [--out <dir> --run <key>] <bed>...
@@ -44,12 +42,17 @@ from checkfile import write_check  # noqa: E402
 from conf import conf  # noqa: E402
 
 CHECK_TEMPLATE = "check_bed.%s.tsv"
-# A coordinate this far past the last masked base on its chromosome is more
-# likely a different assembly than a real interval. The figure is a judgement,
-# not a measurement: the mask does not extend to the end of a chromosome, so some
-# slack is needed, and 1 Mb is loose enough not to fire on a normal bed. It has
-# not been calibrated against a known-wrong-assembly bed.
-BEYOND_MASK_SLACK = 1_000_000
+# A coordinate further than this past its chromosome's last masked base is out of
+# range: a corrupt file, or a bed from a different genome altogether. The figure
+# is a judgement, not a measurement - the mask does not reach the end of a
+# chromosome, so some slack is needed, and 1 Mb is loose enough never to fire on
+# a normal bed.
+#
+# This is NOT an assembly check and is not presented as one. Two builds of the
+# same genome differ by far less than this, so it cannot tell them apart; that
+# the build is unverifiable here is said once, in the summary line, rather than
+# hedged on every bed.
+OUT_OF_RANGE_SLACK = 1_000_000
 
 
 def normalise(chrom):
@@ -58,8 +61,13 @@ def normalise(chrom):
     return c if c.startswith("chr") else "chr" + c
 
 
-def read_bed(path):
-    """(per-chrom stats, problems). Streams, so a 100 MB bed is fine."""
+def read_bed(path, window=0):
+    """(per-chrom stats, problems). Streams, so a 100 MB bed is fine.
+
+    `window` is 2 x CTRL_FLANK; intervals longer than it are counted as they go,
+    because how many there are and how much sequence they hold is what decides
+    whether the control window needs rethinking.
+    """
     stats = {}
     problems = []
     n = 0
@@ -90,13 +98,16 @@ def read_bed(path):
                     break
                 continue
             s = stats.setdefault(f[0], {"n": 0, "bp": 0, "max_end": 0,
-                                        "longest": 0, "n_long": 0,
+                                        "longest": 0, "n_long": 0, "bp_long": 0,
                                         "unsorted": 0, "overlaps": 0,
                                         "prev_end": -1, "prev_start": -1})
             s["n"] += 1
             s["bp"] += end - start
             s["max_end"] = max(s["max_end"], end)
             s["longest"] = max(s["longest"], end - start)
+            if window and end - start > window:
+                s["n_long"] += 1
+                s["bp_long"] += end - start
             if start < s["prev_start"]:
                 s["unsorted"] += 1
             elif start < s["prev_end"]:
@@ -131,14 +142,9 @@ def mask_extents(path):
 
 
 def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
-    """(status, reasons, bp, assembly) for one bed.
-
-    `assembly` is always a sentence, never None: see the module docstring. On a
-    structural FAIL it is "not assessed", because the bed was not read far enough
-    to say anything about its coordinates.
-    """
+    """(status, reasons, bp) for one bed."""
     if problems:
-        return "FAIL", problems[:5], 0, "not assessed"
+        return "FAIL", problems[:5], 0
 
     wanted = {normalise(c) for c in chroms}
     present = set(stats)
@@ -151,7 +157,7 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
             "run analyses %s. A bed named without the 'chr' prefix is the usual "
             "cause, and it would otherwise fail hours later at concat."
             % (", ".join(sorted(present)[:5]) or "nothing",
-               ", ".join(sorted(wanted)[:5]))], 0, "not assessed"
+               ", ".join(sorted(wanted)[:5]))], 0
 
     reasons = []
     extra = sorted(present - wanted)
@@ -165,15 +171,21 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
                100.0 * extra_bp / (bp + extra_bp) if bp + extra_bp else 0.0))
 
     window = 2 * ctrl_flank
-    n_long = sum(1 for c in usable for _ in [0] if stats[c]["longest"] > window)
-    long_chroms = [c for c in sorted(usable) if stats[c]["longest"] > window]
-    if long_chroms:
-        longest = max(stats[c]["longest"] for c in long_chroms)
+    n_long = sum(stats[c]["n_long"] for c in usable)
+    if n_long:
+        bp_long = sum(stats[c]["bp_long"] for c in usable)
+        longest = max(stats[c]["longest"] for c in usable)
         reasons.append(
-            "intervals longer than 2 x CTRL_FLANK (%d bp) on %s, longest %d bp: "
-            "their control window lies entirely inside them, where controls "
-            "cannot be, so they can never find one. Consider a larger "
-            "CTRL_FLANK." % (window, ", ".join(long_chroms[:6]), longest))
+            "%d interval(s) are longer than 2 x CTRL_FLANK (%d bp), holding "
+            "%d bp (%.1f%% of the analysed sequence); longest %d bp. The control "
+            "window is the midpoint +/- CTRL_FLANK, so for these it lies "
+            "entirely inside the interval, where controls cannot be - they can "
+            "never find one and are dropped. Either raise CTRL_FLANK above half "
+            "the longest interval, or the window needs to extend from the "
+            "interval EDGES rather than its centre, which is a change to what "
+            "\"nearby\" means. todo/tocheck.md item 1."
+            % (n_long, window, bp_long,
+               100.0 * bp_long / bp if bp else 0.0, longest))
 
     unsorted_n = sum(stats[c]["unsorted"] for c in usable)
     if unsorted_n:
@@ -186,41 +198,24 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
             "each is windowed separately, so overlapping intervals are counted "
             "once but windowed twice" % overlaps)
 
-    # The assembly. This cannot be settled from coordinates: hg19 and hg38 differ
-    # by a few hundred kb on most chromosomes, so an hg19 bed sits comfortably
-    # inside hg38's extents and no coordinate test will see it. All that is
-    # possible is catching a gross mismatch.
-    #
-    # So the verdict always SAYS which of the two happened. Saying nothing when
-    # the gross check passed would let a reader take PASS for "the build was
-    # verified", which is the package's worst failure mode and is exactly what it
-    # cannot verify.
-    assembly = None
+    # Coordinates grossly out of range: a corrupt file, or an entirely different
+    # genome. Not an assembly check - see OUT_OF_RANGE_SLACK.
     if mask:
         beyond = []
         for c in sorted(usable):
             limit = mask.get(c)
-            if limit and stats[c]["max_end"] > limit + BEYOND_MASK_SLACK:
-                beyond.append("%s ends at %d, past %d in the mask"
-                              % (c, stats[c]["max_end"], limit))
+            if limit and stats[c]["max_end"] > limit + OUT_OF_RANGE_SLACK:
+                beyond.append("%s ends at %d, more than %d past the last masked "
+                              "base at %d"
+                              % (c, stats[c]["max_end"], OUT_OF_RANGE_SLACK,
+                                 limit))
         if beyond:
             reasons.append(
-                "coordinates run past the end of the chromosome in MASK_BED, so "
-                "the bed is probably not the assembly the reference data is: %s"
+                "coordinates are out of range for this reference data - a "
+                "corrupt bed, or one from a different genome: %s"
                 % "; ".join(beyond[:4]))
-            assembly = "gross mismatch against MASK_BED"
-        else:
-            assembly = ("no coordinate runs more than %d bp past its "
-                        "chromosome's last masked base. That is all this checks, "
-                        "so it CANNOT confirm the build - only a mismatch larger "
-                        "than that slack would show. Confirm the assembly by hand"
-                        % BEYOND_MASK_SLACK)
-    else:
-        assembly = ("not checked at all: no readable MASK_BED. Confirm the "
-                    "assembly by hand")
-        reasons.append("the assembly was not checked: no readable MASK_BED")
 
-    return ("WARN" if reasons else "PASS"), reasons, bp, assembly
+    return ("WARN" if reasons else "PASS"), reasons, bp
 
 
 def rows_for(beds, chroms, ctrl_flank, mask_bed=None):
@@ -230,24 +225,21 @@ def rows_for(beds, chroms, ctrl_flank, mask_bed=None):
         item = os.path.basename(bed)
         if not os.path.exists(bed) or os.path.getsize(bed) == 0:
             out.append({"item": item, "status": "FAIL", "n_intervals": 0,
-                        "bp": 0, "assembly": "not assessed",
-                        "reason": "missing or empty: %s" % bed})
+                        "bp": 0, "reason": "missing or empty: %s" % bed})
             continue
         try:
-            stats, problems = read_bed(bed)
+            stats, problems = read_bed(bed, window=2 * ctrl_flank)
         except OSError as exc:
             out.append({"item": item, "status": "FAIL", "n_intervals": 0,
-                        "bp": 0, "assembly": "not assessed",
-                        "reason": "cannot read %s: %s" % (bed, exc)})
+                        "bp": 0, "reason": "cannot read %s: %s" % (bed, exc)})
             continue
-        status, reasons, bp, assembly = assess(bed, stats, problems, chroms,
-                                               ctrl_flank, mask)
+        status, reasons, bp = assess(bed, stats, problems, chroms, ctrl_flank,
+                                     mask)
         wanted = {normalise(c) for c in chroms}
         out.append({
             "item": item, "status": status,
             "n_intervals": sum(s["n"] for c, s in stats.items() if c in wanted),
-            "bp": bp, "assembly": assembly or "not assessed",
-            "reason": "; ".join(reasons) or "NA"})
+            "bp": bp, "reason": "; ".join(reasons) or "NA"})
     return out
 
 
@@ -282,9 +274,12 @@ def main(argv=None):
     for r in rows:
         print("  %s %s: %d intervals, %d bp" % (r["status"], r["item"],
                                                 r["n_intervals"], r["bp"]))
-        print("      assembly: %s" % r["assembly"])
         if r["status"] != "PASS":
             print("      %s" % r["reason"])
+    # Said once, not hedged on every bed: the build is the thing this cannot
+    # check, and a reader should hear it exactly as often as it is true.
+    print("  note: the genome build is NOT verified by this check. Confirm by "
+          "hand that the bed matches the reference data.")
     # FAIL blocks; a WARN is information the user should have before waiting.
     return 1 if any(r["status"] == "FAIL" for r in rows) else 0
 

@@ -203,7 +203,7 @@ demography; `submit_dfe.sh` generates the command packs). So `qstat` shows only
 the current phase, and the rest arrives later via launcher jobs:
 
 ```
-phase 1  prep sfs concat demo bestfit   -> launcher
+phase 1  prep sfs concat demo bestdemo  -> launcher
 phase 2  cache                          -> launcher
 phase 3  fitneu dfe bestdfe summary bestpdf
 ```

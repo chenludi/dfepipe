@@ -20,7 +20,7 @@ is desirable - it makes a single local optimum less likely - but a converged bad
 fit is still a bad fit and a scattered good fit is still a good fit, so it only
 ever warns.
 
-The residual metrics are not recomputed here: run_bestfit.sh writes the
+The residual metrics are not recomputed here: run_bestdemo.sh writes the
 best-fit model spectrum beside the fits as `bestfit_model.fs`, and this script
 compares it with the control spectrum through scripts/checks/residuals.py.
 """
@@ -38,7 +38,7 @@ from residuals import classify, residual_metrics  # noqa: E402
 # is the conventional "same optimum" tolerance for a nested-model comparison.
 CONVERGENCE_LL_SPREAD = 1.0
 
-# Written by run_bestfit.sh; the model spectrum for the maximum-likelihood fit.
+# Written by run_bestdemo.sh; the model spectrum for the maximum-likelihood fit.
 MODEL_FS_NAME = "bestfit_model.fs"
 BEST_INFERENCE_NAME = "best_inference.txt"
 # The control spectrum the fits were made against. The tail of the name carries
@@ -73,7 +73,7 @@ def assess_demo(metrics, top_lls, cfg, na=None, n_fits=None,
         fails.append(
             "%s is missing or unparseable: the later stages grep it for "
             "'max_ll_key:' and 'Na:', so nothing downstream can run. Re-run "
-            "scripts/demo/run_bestfit.sh" % BEST_INFERENCE_NAME)
+            "scripts/demo/run_bestdemo.sh" % BEST_INFERENCE_NAME)
     elif na <= 0:
         fails.append(
             "Na is %g, not positive: theta or the control mutation count is "
@@ -111,7 +111,7 @@ def assess_demo(metrics, top_lls, cfg, na=None, n_fits=None,
 def parse_best_inference(path):
     """best_inference.txt as a dict, or None if it is absent or unusable.
 
-    The file is `key:value` per line, written by run_bestfit.sh in the
+    The file is `key:value` per line, written by run_bestdemo.sh in the
     historical order. Values that should be numbers are converted; a value that
     will not convert leaves the key as the raw string, except for the keys the
     verdict depends on, whose absence makes the whole file unusable.

@@ -112,7 +112,7 @@ for bed in "$@"; do
   done
   [[ -s "$best" ]] || {
     echo "run_fitneu: no demographic best fit for '${base}': ${best}" >&2
-    echo "      Run scripts/demo/run_bestfit.sh first, or check DEMO_RUN." >&2
+    echo "      Run scripts/demo/run_bestdemo.sh first, or check DEMO_RUN." >&2
     exit 1; }
 
   # The winning fit, recovered through max_ll_key exactly as

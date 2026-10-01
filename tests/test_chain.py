@@ -47,10 +47,10 @@ def order(r):
 
 def test_phase_1_stops_before_cache_and_launches_the_next(tmp_path):
     """submit_cache.sh reads best_inference.txt at submit time, so cache cannot
-    go in before bestfit has run. The phase ends with a launcher instead."""
+    go in before bestdemo has run. The phase ends with a launcher instead."""
     r = dry(tmp_path)
     assert r.returncode == 0, r.stderr
-    assert order(r) == ["prep", "sfs", "concat", "demo", "bestfit",
+    assert order(r) == ["prep", "sfs", "concat", "demo", "bestdemo",
                         "launch:cache"]
     assert "phase 1 submitted" in r.stdout
 
@@ -88,8 +88,8 @@ def test_each_stage_holds_on_the_one_before(tmp_path):
     r = dry(tmp_path)
     text = r.stdout + r.stderr
     for stage, held in [("sfs", "DRY-prep"), ("concat", "DRY-sfs"),
-                        ("demo", "DRY-concat"), ("bestfit", "DRY-demo"),
-                        ("launch:cache", "DRY-bestfit")]:
+                        ("demo", "DRY-concat"), ("bestdemo", "DRY-demo"),
+                        ("launch:cache", "DRY-bestdemo")]:
         line = [l for l in text.splitlines()
                 if re.match(r"\s+%s\s+(TERSE|qsub)" % re.escape(stage), l)]
         assert line, stage

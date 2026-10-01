@@ -5,7 +5,7 @@
 #   bash scripts/cache/run_cache.sh <bed> [bed...]
 #
 # <bed> is the ORIGINAL bed, the same argument prep, sfs and the demo stage took.
-# Run it after scripts/demo/run_bestfit.sh: the gamma bounds are 2*s*Na and Na
+# Run it after scripts/demo/run_bestdemo.sh: the gamma bounds are 2*s*Na and Na
 # comes from that stage's best_inference.txt.
 #
 # Ported from submit_dadi-cli_cache_simp.sh (which fit, which Na, the output
@@ -138,7 +138,7 @@ for bed in "$@"; do
   best="${d}/best_inference.txt"
   [[ -s "$best" ]] || {
     echo "run_cache: no best_inference.txt for '${base}': ${best}" >&2
-    echo "      Run scripts/demo/run_bestfit.sh first, or check FS_RUN /" >&2
+    echo "      Run scripts/demo/run_bestdemo.sh first, or check FS_RUN /" >&2
     echo "      DEMO_MODEL / DEMO_RUN." >&2
     exit 1; }
 

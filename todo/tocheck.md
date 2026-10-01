@@ -61,6 +61,19 @@ intervals.
       cleanup: it changes which controls pair with which test sites for every
       annotation. Do not change it without deciding deliberately.
 
+      **Chenlu, 2026-10-01:** "if the input bed interval is too large, we cannot
+      use our ctrl_flank, or we should use the flank extend from edge instead of
+      center." So the edge-based window is a live option for long intervals, not
+      a hypothetical. The decision still has to be made deliberately, because it
+      changes the control pairing for *every* annotation, not only the long ones
+      — unless it is applied conditionally, which is a third option and needs
+      thinking about (a rule that changes with interval length means two
+      annotations are not treated the same way).
+
+      `scripts/checks/check_bed.py` now reports how many intervals exceed
+      2 x CTRL_FLANK and how much sequence they hold, so the size of the problem
+      is visible per bed before a run.
+
 **2026-10-01: the key has no effect at all.** `run_prep.sh:112` merges prep's
 output (a deviation from the original, which did not), and the sfs stage windows
 *prep's* bed - so by the time `MERGE_BEFORE_WINDOW` is consulted the merge has

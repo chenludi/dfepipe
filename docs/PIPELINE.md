@@ -12,7 +12,7 @@ prep     bed            -> the analysable bases of that bed
 sfs      prep bed, VCF  -> per-chromosome spectra for target and control
          concat         -> the genome-wide spectra and mutation tables
 demo     control SFS    -> demographic fits
-         bestfit        -> the winning demography
+         bestdemo       -> the winning demography
 cache    demography     -> expected spectra over ~300 selection coefficients
 dfe      cache, target  -> the DFE fits
          bestdfe        -> the winning fit, discretised
@@ -97,7 +97,7 @@ analyses autosomes; `concat_chroms.tsv` records what actually went in.
 ## demo — the demographic model
 
 `scripts/sge/submit_demo.sh <bed>...` — one array task per starting-point file in
-`DEMO_P0_DIR` — then `scripts/demo/run_bestfit.sh <bed>...`.
+`DEMO_P0_DIR` — then `scripts/demo/run_bestdemo.sh <bed>...`.
 
 Fits `DEMO_MODEL` to the **control** spectrum with `dadi-cli InferDM`, from many
 starting points, and picks the maximum-likelihood fit. Writes

@@ -20,7 +20,7 @@
 # phase's last job, which re-runs this script with the next FROM. The chain
 # submits itself forward:
 #
-#   phase 1  FROM=prep    prep sfs concat demo bestfit   -> launcher FROM=cache
+#   phase 1  FROM=prep    prep sfs concat demo bestdemo  -> launcher FROM=cache
 #   phase 2  FROM=cache   cache                          -> launcher FROM=dfe
 #   phase 3  FROM=dfe     fitneu dfe bestdfe summary bestpdf
 #
@@ -34,7 +34,7 @@
 #   sfs       array over chromosomes   per-chromosome spectra and mutation tables
 #   concat    one job                  the genome-wide spectrum
 #   demo      array over p0 files      the demographic fits
-#   bestfit   one job                  picks the winning demography
+#   bestdemo  one job                  picks the winning demography
 #   cache     array over beds          the selection-coefficient cache
 #   fitneu    one job                  the neutral null likelihood
 #   dfe       array per pdf            the DFE fits, one task per pack
@@ -230,7 +230,7 @@ echo "run_all: ${#beds[@]} bed(s), from '${from}', logs in ${log_dir}"
 [[ "$dry" == "1" ]] && echo "run_all: DRY_RUN=1, nothing will be submitted"
 
 jid=""        # what the next stage holds on
-jid_prep=""; jid_concat=""; jid_bestfit=""; jid_cache=""
+jid_prep=""; jid_concat=""; jid_bestdemo=""; jid_cache=""
 
 if want prep; then
   jid_prep="$(bare "$(array prep "" "" "" "${beds[@]}")")"
@@ -253,13 +253,13 @@ fi
 if want demo; then
   jid_demo="$(bare "$(array demo "$jid" "$chk_sfs" sfs "${beds[@]}")")"
   say demo "$jid_demo"
-  jid_bestfit="$(bare "$(step bestfit "$jid_demo" "$chk_sfs" sfs \
-                         scripts/demo/run_bestfit.sh "${beds[@]}")")"
-  say bestfit "$jid_bestfit"
-  jid="$jid_bestfit"
+  jid_bestdemo="$(bare "$(step bestdemo "$jid_demo" "$chk_sfs" sfs \
+                         scripts/demo/run_bestdemo.sh "${beds[@]}")")"
+  say bestdemo "$jid_bestdemo"
+  jid="$jid_bestdemo"
 fi
 
-# Phase 1 ends here: submit_cache.sh reads best_inference.txt, which bestfit
+# Phase 1 ends here: submit_cache.sh reads best_inference.txt, which bestdemo
 # has not written yet.
 if [[ "$from" != cache && "$from" != dfe && "$from" != summary ]]; then
   jid_launch="$(bare "$(launch_next "$jid" cache)")"

@@ -14,7 +14,7 @@
 # finished. Submit it after this job, holding on its id:
 #
 #   jid=$(TERSE=1 bash scripts/sge/submit_demo.sh mybed.bed)
-#   HOLD="${jid%%.*}" ... scripts/demo/run_bestfit.sh mybed.bed
+#   HOLD="${jid%%.*}" ... scripts/demo/run_bestdemo.sh mybed.bed
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

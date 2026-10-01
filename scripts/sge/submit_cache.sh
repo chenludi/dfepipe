@@ -59,7 +59,7 @@ for bed in "$@"; do
   if [[ ! -s "$best" ]]; then
     echo "submit_cache: '${base}' has no best_inference.txt: ${best}" >&2
     echo "      The gamma bounds are 2*s*Na and Na comes from there. Run" >&2
-    echo "      scripts/demo/run_bestfit.sh first, or check FS_RUN /" >&2
+    echo "      scripts/demo/run_bestdemo.sh first, or check FS_RUN /" >&2
     echo "      DEMO_MODEL / DEMO_RUN." >&2
     exit 1
   fi

@@ -17,7 +17,7 @@
 # and each line becomes its own InferDM run, wrapped in `timeout`, exactly as
 # submit_dadi-cli_demog_fsfile.sh:60 did. The output prefix keeps the historical
 # name, <DEMO_MODEL>.<fs basename>.<p0marker>, because the p0marker is the
-# `max_ll_key` that best_inference.txt reports and run_bestfit.sh recovers the
+# `max_ll_key` that best_inference.txt reports and run_bestdemo.sh recovers the
 # winning file by globbing for it.
 #
 # The spectrum fitted is the quiescent control one, not the test one: the

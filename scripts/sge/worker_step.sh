@@ -4,7 +4,7 @@
 #   qsub ... worker_step.sh <script> [args...]
 #
 # For the steps that are not arrays and so have no submit_*.sh of their own:
-# run_concat.sh, run_bestfit.sh, run_fitneu.sh, run_bestdfe.sh, run_summary.sh
+# run_concat.sh, run_bestdemo.sh, run_fitneu.sh, run_bestdfe.sh, run_summary.sh
 # and run_bestpdf.sh. Each can only start once the array before it has finished,
 # which is what `qsub -hold_jid` arranges.
 #

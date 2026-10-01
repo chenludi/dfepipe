@@ -32,18 +32,11 @@ def one(tmp_path, text, chroms=CHROMS, flank=25000, mask=None):
 
 # ------------------------------------------------------------------ structure --
 
-def test_a_good_bed_passes_when_the_assembly_can_be_checked(tmp_path):
+def test_a_good_bed_passes(tmp_path):
     mask = write(tmp_path, "mask.bed", "chr1\t0\t1000000\nchr2\t0\t1000000\n")
     r = one(tmp_path, "chr1\t100\t200\nchr2\t300\t400\n", mask=mask)
     assert r["status"] == "PASS", r["reason"]
     assert r["n_intervals"] == 2 and r["bp"] == 200
-
-
-def test_without_a_mask_it_says_the_assembly_was_not_checked(tmp_path):
-    """Silence would imply the build had been verified when it had not."""
-    r = one(tmp_path, "chr1\t100\t200\n")
-    assert r["status"] == "WARN"
-    assert "assembly was not checked" in r["reason"]
 
 
 @pytest.mark.parametrize("text,fragment", [
@@ -105,6 +98,17 @@ def test_an_interval_longer_than_the_window_warns(tmp_path):
     assert "can never find one" in r["reason"]
 
 
+def test_the_long_interval_warning_quantifies_the_loss(tmp_path):
+    """How many and how much bp is what decides whether CTRL_FLANK needs raising
+    or the window needs to extend from the edges instead of the centre."""
+    r = one(tmp_path, "chr1\t0\t60000\nchr1\t100000\t101000\n"
+                      "chr2\t0\t200000\n", flank=25000)
+    assert "2 interval(s) are longer" in r["reason"]
+    assert "260000 bp" in r["reason"]
+    assert "longest 200000 bp" in r["reason"]
+    assert "EDGES" in r["reason"]          # names the alternative
+
+
 def test_an_interval_just_under_the_window_does_not(tmp_path):
     mask = write(tmp_path, "mask.bed", "chr1\t0\t1000000\n")
     r = one(tmp_path, "chr1\t0\t49999\n", flank=25000, mask=mask)
@@ -118,10 +122,21 @@ def test_unsorted_and_overlapping_intervals_warn(tmp_path):
         tmp_path, "chr1\t100\t200\nchr1\t150\t400\n")["reason"]
 
 
-def test_a_coordinate_past_the_mask_suggests_the_wrong_assembly(tmp_path):
+def test_a_coordinate_far_past_the_mask_warns_as_out_of_range(tmp_path):
+    """Catches a corrupt bed or one from a different genome. NOT an assembly
+    check: two builds of the same genome differ by far less than the slack."""
     mask = write(tmp_path, "mask.bed", "chr1\t0\t1000\n")
     r = one(tmp_path, "chr1\t100\t9000000\n", mask=mask)
-    assert "not the assembly" in r["reason"]
+    assert "out of range" in r["reason"]
+
+
+def test_the_summary_says_the_build_is_not_verified(tmp_path, capsys):
+    """Said once, where it is true, rather than hedged on every bed."""
+    good = write(tmp_path, "good.bed", "chr1\t100\t200\n")
+    main(["--chroms", "1", good])
+    out = capsys.readouterr().out
+    assert "genome build is NOT verified" in out
+    assert "hg19" not in out              # claims nothing unsourced
 
 
 # -------------------------------------------------------------------- the CLI --
@@ -179,33 +194,7 @@ def test_a_warning_does_not_stop_the_chain(tmp_path):
 
 # ------------------------------------------- the assembly is always stated --
 
-def test_a_clean_bed_still_says_the_build_was_not_confirmed(tmp_path):
-    """A silent PASS would read as "the assembly was verified", which this cannot
-    do: it compares against the mask with 1 Mb of slack, so only a gross
-    mismatch shows. The verdict must say so every time, and must claim no more
-    than the code actually checks."""
-    mask = write(tmp_path, "mask.bed", "chr1\t0\t1000000\n")
-    r = one(tmp_path, "chr1\t100\t200\n", mask=mask)
-    assert r["status"] == "PASS"
-    assert "CANNOT confirm the build" in r["assembly"]
-    assert "last masked base" in r["assembly"]      # says what it did check
-    assert "hg19" not in r["assembly"]              # claims nothing unsourced
 
-
-def test_every_row_carries_an_assembly_verdict(tmp_path):
-    """Including the structural failures, which never get far enough to judge."""
-    beds = [write(tmp_path, "a.bed", "chr1\t100\t200\n"),
-            write(tmp_path, "b.bed", "1\t100\t200\n"),
-            write(tmp_path, "c.bed", "chr1\t200\t100\n"),
-            str(tmp_path / "absent.bed")]
-    for r in rows_for(beds, CHROMS, 25000):
-        assert r.get("assembly"), r
-
-
-def test_the_printed_output_always_shows_the_assembly_line(tmp_path, capsys):
-    good = write(tmp_path, "good.bed", "chr1\t100\t200\n")
-    main(["--chroms", "1", good])
-    assert "assembly:" in capsys.readouterr().out
 
 
 def test_an_empty_chroms_falls_back_to_the_config(tmp_path, capsys):
