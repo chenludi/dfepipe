@@ -27,12 +27,15 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG="$(dirname "$here")"
 
-if [[ $# -ne 1 ]]; then
-  echo "usage: push.sh <host>:<path>" >&2
+# DFEPIPE_REMOTE is the default destination, so a site profile can record it
+# once instead of everyone retyping it. An argument overrides it.
+dest="${1:-${DFEPIPE_REMOTE:-}}"
+if [[ $# -gt 1 || -z "$dest" ]]; then
+  echo "usage: push.sh [<host>:<path>]" >&2
+  echo "       with no argument, uses \$DFEPIPE_REMOTE from your site profile" >&2
   echo "       e.g. push.sh hoffman2:project-klohmuel/noncdoingdfe/test_0118/dfepipe" >&2
   exit 2
 fi
-dest="$1"
 [[ "$dest" == *:* ]] || { echo "push.sh: destination needs <host>:<path>" >&2; exit 2; }
 
 # Everything the package needs to run, and nothing that is generated.

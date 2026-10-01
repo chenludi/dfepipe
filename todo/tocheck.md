@@ -61,7 +61,27 @@ intervals.
       cleanup: it changes which controls pair with which test sites for every
       annotation. Do not change it without deciding deliberately.
 
-**Decision, 2026-09-29: the default is now `MERGE_BEFORE_WINDOW=0`**, one window
+**2026-10-01: the key has no effect at all.** `run_prep.sh:112` merges prep's
+output (a deviation from the original, which did not), and the sfs stage windows
+*prep's* bed - so by the time `MERGE_BEFORE_WINDOW` is consulted the merge has
+already happened. Verified on the real chr22 prep output: re-merging leaves
+28,511 intervals and 791,110 bp unchanged.
+
+So the measured 26 bp merged-vs-unmerged difference recorded below was a
+comparison against the **original** pipeline, whose prep did not merge. It is
+evidence about prep's merge, not about this key.
+
+The live question is therefore different from the one below, and it is a science
+question: **should prep merge at all?** Merging means adjacent and bookended
+intervals of an annotation stop being separate units, which changes where the
+control window's midpoint falls. Not to be changed without deciding deliberately.
+
+- [ ] Decide whether prep should merge. If it should not, `MERGE_BEFORE_WINDOW`
+      becomes meaningful again and the two behaviours can be compared properly.
+- [ ] If prep keeps merging, consider removing the key rather than shipping a
+      config value that does nothing.
+
+**Superseded, 2026-09-29: the default is `MERGE_BEFORE_WINDOW=0`**, one window
 per input interval. The intervals of an annotation are meaningful units - one
 cCRE, one ChromHMM segment - and the pipeline should not silently redefine them;
 anyone who wants merged regions can merge their input bed first. It also matches

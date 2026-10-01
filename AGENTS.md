@@ -64,9 +64,12 @@ Run the preflight and show the user its output — it answers most of the above
 from their actual file:
 
 ```bash
-python3 scripts/checks/check_bed.py --chroms "$CHROMS" --ctrl-flank "$CTRL_FLANK" \
-    --mask-bed "$MASK_BED" their.bed
+python3 scripts/checks/check_bed.py --mask-bed "$MASK_BED" their.bed
 ```
+
+It reads `CHROMS` and `CTRL_FLANK` from `config/pipeline.conf` itself, so do not
+pass them: a profile does not export `CHROMS`, and passing an empty one used to
+fail every bed while blaming the chromosome names.
 
 ### 2b. The demographic model — the one real science choice
 
@@ -133,7 +136,7 @@ it is for. It is a template and will not run as-is.
 | `CTRL_FLANK` | `25000` | control window is midpoint ± this. **Changing it changes which controls pair with which targets for every annotation** — a science decision, not a tuning knob |
 | `PROJECTION` | `160` | sites genotyped in fewer chromosomes are dropped; trades sites for sample size |
 | `PDFS` | `neu gamma neugamma` | which DFE shapes to fit. `neu` is the null; `neugamma` adds a neutral spike |
-| `MERGE_BEFORE_WINDOW` | `0` | one control window per input interval, vs per merged region |
+| `MERGE_BEFORE_WINDOW` | `0` | **currently has no effect** - `run_prep.sh` already merges, so the bed reaching sfs is merged either way. Verified on chr22: re-merging changes neither the interval count nor the bp. `todo/tocheck.md` item 1 |
 | `CHROMS` | `1`–`22` | only for a deliberate subset; concat refuses a partial set otherwise |
 
 ### Tier 3 — tell the user these exist, then leave them alone

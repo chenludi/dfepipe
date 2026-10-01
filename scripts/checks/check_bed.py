@@ -256,7 +256,17 @@ def main(argv=None):
     ap.add_argument("beds", nargs="+")
     a = ap.parse_args(argv)
 
-    rows = rows_for(a.beds, a.chroms.split(), a.ctrl_flank, a.mask_bed or None)
+    chroms = a.chroms.split()
+    if not chroms:
+        # Empty means the caller passed an unset $CHROMS. Analysing nothing would
+        # FAIL every bed and blame the chr prefix, so fall back to the config.
+        chroms = conf.get("CHROMS", " ".join(str(i) for i in range(1, 23))).split()
+        sys.stderr.write("check_bed: --chroms was empty, using pipeline.conf's "
+                         "CHROMS (%d chromosomes)\n" % len(chroms))
+    if not chroms:
+        sys.stderr.write("check_bed: no chromosomes to analyse\n")
+        return 2
+    rows = rows_for(a.beds, chroms, a.ctrl_flank, a.mask_bed or None)
     if a.out and a.run:
         os.makedirs(a.out, exist_ok=True)
         path = os.path.join(a.out, CHECK_TEMPLATE % a.run)

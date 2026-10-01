@@ -14,8 +14,11 @@
 # runs them, with the file:line of each step:
 #
 #   1.  grep the chromosome out of the prep bed        windctrl_splitchr.sh:37
-#   2.  sort and merge it - the window is computed on
-#       the MERGED regions, not the raw ones           windctrl_splitchr.sh:41-42
+#   2.  sort it, and merge only if MERGE_BEFORE_WINDOW=1
+#       (the original always merged)                   windctrl_splitchr.sh:41-42
+#       NOTE this is a no-op either way: run_prep.sh:112 already merges its
+#       output, so the bed arriving here is merged whatever this is set to.
+#       See todo/tocheck.md item 1.
 #   3.  quiescent_extest = the chromosome's candidate-
 #       neutral bed MINUS the test bed, so a control
 #       can never also be a test site                  windctrl_splitchr.sh:58

@@ -203,3 +203,13 @@ def test_the_printed_output_always_shows_the_assembly_line(tmp_path, capsys):
     good = write(tmp_path, "good.bed", "chr1\t100\t200\n")
     main(["--chroms", "1", good])
     assert "assembly:" in capsys.readouterr().out
+
+
+def test_an_empty_chroms_falls_back_to_the_config(tmp_path, capsys):
+    """A profile does not export CHROMS, so `--chroms "$CHROMS"` in a shell that
+    sourced only a profile passed an empty string - and an empty chromosome list
+    FAILED every bed while blaming the chr prefix, which is the most misleading
+    message this package can emit."""
+    good = write(tmp_path, "good.bed", "chr1\t100\t200\n")
+    assert main(["--chroms", "", good]) == 0
+    assert "--chroms was empty" in capsys.readouterr().err
