@@ -263,10 +263,13 @@ log-likelihood margins and are what the published figures use; the `chi_*` rows
 are the nominal likelihood-ratio cutoffs. **`delta_50` is an empirical choice,
 not a derived statistic.**
 
-Below `MODELSEL_SMALL_L=1500000` bp, `MODELSEL_SMALL_PRIMARY=chi_5%` decides
-instead, because a flat 50-unit margin is a stricter test on a short sequence
-than a long one. `modelsel_level` records which applied. Set
-`MODELSEL_SMALL_L=0` for the original single-cutoff behaviour.
+`MODELSEL_SMALL_L` is **0 by default**, so one cutoff applies to every bed, as
+the original did. Set it to a length in bp and beds shorter than that use
+`MODELSEL_SMALL_PRIMARY` instead, because a flat 50-unit margin is a stricter
+test on a short sequence than a long one - `delta_50` can report `neutral` where
+`chi_5%` reports `gamma` on the same data. `modelsel_level` records which
+applied. It is opt-in because it changes the reported pdf, and because the 1.5 Mb
+figure originally shipped here was invented rather than derived.
 
 A `neutral` verdict reports the DFE as `[1, 0, 0, 0, 0, 0]` rather than the gamma
 bins. `num_nonneutral = (1 − first bin) × ul`.

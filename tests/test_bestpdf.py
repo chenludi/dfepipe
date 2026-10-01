@@ -238,3 +238,19 @@ def test_every_input_column_survives(tmp_path):
     r = result(tmp_path)
     for col in original:
         assert col in r, col
+
+
+def test_the_small_target_rule_is_off_by_default(tmp_path):
+    """It changes which pdf is reported for a short bed, and the original applied
+    one cutoff to every bed. A result-affecting invention must be opt-in."""
+    conf = (ROOT / "config" / "pipeline.conf").read_text()
+    assert 'MODELSEL_SMALL_L="${MODELSEL_SMALL_L:-0}"' in conf
+
+
+def test_with_the_rule_off_a_short_bed_uses_the_primary_cutoff(tmp_path):
+    setup(tmp_path, ll_neu=-1010.0, ll_gamma=-1000.0, ll_neugamma=-1000.0,
+          l=1000.0)
+    run(tmp_path, small_l="0")
+    r = result(tmp_path)
+    assert r["modelsel_level"] == "delta_50"
+    assert r["pdf_plotting"] == "neutral"

@@ -150,9 +150,12 @@ gets flagged), and the scheduler resources in section 5.
 Two worth naming because a user may ask:
 
 - **`MODELSEL_PRIMARY=delta_50`** decides which model-selection cutoff reports
-  the headline DFE. It is an empirical choice, not a derived test statistic. The
-  `chi_*` rows in `config/cutvalue_modelsel.csv` are the nominal
-  likelihood-ratio cutoffs.
+  the headline DFE. It is an empirical choice of Chenlu's, not a derived test
+  statistic. The `chi_*` rows in `config/cutvalue_modelsel.csv` are the nominal
+  likelihood-ratio cutoffs. That table is Chenlu's own, copied verbatim.
+- **`MODELSEL_SMALL_L=0`**, so one cutoff applies to every bed, as in the
+  original. Setting it switches short beds to `MODELSEL_SMALL_PRIMARY`, which
+  changes which pdf they report - a real effect, but opt-in for that reason.
 - **`GRIDS`** stays as it is. dadi warns that 11 of 300 cache spectra are
   unusable at these grids; larger grids were tested and did not help, so the
   warning is expected and reproduced rather than introduced.
