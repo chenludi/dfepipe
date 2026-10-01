@@ -66,6 +66,7 @@ source "${REPO_DIR}/config/env.sh"
 
 # Positive here, as in piperef_stddfe_4_plotdemo.sh:43; negated internally.
 : "${DEMO_LL_CUTOFF:?DEMO_LL_CUTOFF not set}"
+: "${ROULETTE_SCALE:?ROULETTE_SCALE not set}"
 
 if [[ $# -eq 0 ]]; then
   echo "usage: run_bestfit.sh <bed> [bed...]" >&2
@@ -110,7 +111,7 @@ for bed in "$@"; do
 
   echo "run_bestfit: ${base}: picking the maximum-likelihood fit in ${d}"
   if ! python3 - "$d" "$dadi_model" "$DEMO_MODEL" "$data_fs" "$mutfile" \
-                "$DEMO_LL_CUTOFF" "${PNG:-0}" <<'PY'
+                "$DEMO_LL_CUTOFF" "${PNG:-0}" "$ROULETTE_SCALE" <<'PY'
 """Pick the maximum-likelihood demographic fit, write best_inference.txt, plot.
 
 A faithful port of plot_bestll_demo_args_0421.py; the differences are listed in
@@ -128,9 +129,10 @@ import dadi                               # noqa: E402
 demo_dir, dadi_model, model, data_fs, mutfile, cutoff_arg, png = sys.argv[1:8]
 want_png = png not in ("", "0", "no", "false")
 
-# Roulette's per-site rates are stored scaled; 1.015e-7 converts a table value
-# to a diploid per-site rate (plot_bestll_demo_args_0421.py:97).
-ROULETTE_SCALE = 1.015e-7
+# Roulette stores per-site rates scaled; ROULETTE_SCALE (pipeline.conf) converts
+# a table value to a diploid per-site rate (plot_bestll_demo_args_0421.py:97).
+# Passed in rather than hardcoded, so every stage uses one value.
+ROULETTE_SCALE = float(sys.argv[8])
 
 
 def die(msg):

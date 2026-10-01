@@ -70,7 +70,10 @@ p0arg="$1"; shift
 beds=("$@")
 
 # dadi-cli's model name and its parameter count. pipeline.conf accepts
-# `bottlegrowth`; dadi-cli calls the 1-population version `bottlegrowth_1d`
+# `bottlegrowth`; dadi-cli calls the 1-population version `bottlegrowth_1d`.
+# pipeline.conf accepts only three_epoch and two_epoch - the two with a p0 grid -
+# so the branches below for growth and bottlegrowth are unreachable today. They
+# are kept because adding a p0 grid is all it takes to need them again.
 # (dadi-cli_demog_fsfile.sh:74-75), so the two names meet here.
 case "$DEMO_MODEL" in
   three_epoch)  dadi_model="three_epoch";     nparam=4 ;;   # nuB nuF TB TF

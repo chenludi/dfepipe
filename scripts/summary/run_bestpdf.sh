@@ -35,12 +35,14 @@
 #     tells the two pdfs apart by `pdf` vs `pdf.1` - the names pandas invents
 #     for the duplicate headings (:85-123). run_summary.sh prefixes its columns
 #     by pdf, so that machinery is not needed.
-#   * a small mutational target uses MODELSEL_SMALL_PRIMARY instead. The
-#     original takes one --confidence for every bed. A flat margin of 50
-#     log-likelihood units is a different test on 1,500 SNPs than on 500,000,
-#     so below MODELSEL_SMALL_L the nominal chi-square cutoff is used and the
-#     row records which applied. Set MODELSEL_SMALL_L=0 for the original
-#     behaviour.
+#   * a small target uses MODELSEL_SMALL_PRIMARY instead. The original takes
+#     one --confidence for every bed. A flat margin of 50 log-likelihood units
+#     is a different test on a short sequence than on a long one, so below
+#     MODELSEL_SMALL_L the nominal chi-square cutoff is used and the row records
+#     which applied in modelsel_level. The comparison is against `l`, the
+#     analysed length in bp (length_adj_inputbed), NOT against the mutational
+#     target `ul` - 1.5 Mb is a bp figure. Set MODELSEL_SMALL_L=0 for the
+#     original behaviour.
 #   * `ul` comes from run_summary.sh rather than being recomputed here.
 set -euo pipefail
 
@@ -56,7 +58,7 @@ source "${REPO_DIR}/config/env.sh"
 : "${MODELSEL_TABLE:?MODELSEL_TABLE not set: the confidence/cutoff csv}"
 : "${MODELSEL_PRIMARY:?MODELSEL_PRIMARY not set: which confidence level the DFE columns use}"
 : "${MODELSEL_SMALL_PRIMARY:?MODELSEL_SMALL_PRIMARY not set}"
-: "${MODELSEL_SMALL_L:?MODELSEL_SMALL_L not set: the mutational target below which the small-target cutoff applies}"
+: "${MODELSEL_SMALL_L:?MODELSEL_SMALL_L not set: the sequence length in bp below which the small-target cutoff applies}"
 : "${DFE_BINS:?DFE_BINS not set}"
 
 d="${OUT}/summary/${SUMMARY_RUN}"
@@ -195,8 +197,9 @@ for row in rows:
         and len(decided) == len(picks) else "")
 
     # Which level decides the reported DFE. A flat margin is a different test
-    # on a small target than on a large one, so below MODELSEL_SMALL_L the
-    # nominal chi-square cutoff applies instead.
+    # on a short sequence than on a long one, so below MODELSEL_SMALL_L the
+    # nominal chi-square cutoff applies instead. `l` is bp, not the mutational
+    # target: MODELSEL_SMALL_L is a length.
     l = num(row.get("l"))
     level = (small_primary if (l is not None and small_l > 0 and l < small_l)
              else primary)

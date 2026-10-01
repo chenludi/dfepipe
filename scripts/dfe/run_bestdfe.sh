@@ -28,11 +28,15 @@
 #
 # Note on rule 1: the original's parser overwrites its per-file entry on every
 # converged row and does not break, so the row that survived was the LAST of the
-# converged block - the WORST converged fit in that file. We take the best;
-# see docs/tocheck.md for what that changes against the published values.
-# That is what produced every published number (the reference gamma fit's file
-# holds -610.1733440069229 first and the published -610.1733440139265 last), so
-# it is ported exactly. It is in the report.
+# converged block - the WORST converged fit in that file. That is what produced
+# every published number: the reference gamma fit's file holds
+# -610.1733440069229 first and the published -610.1733440139265 last.
+#
+# We take the BEST row instead. This is the one deliberate numerical difference
+# between this pipeline and the published results - everything else is ported
+# exactly. For phastCons17way 0-5 it is 7e-9 in ll and the 6th decimal of shape,
+# but it is unbounded for a poorly converged file, so the impact across every
+# published fit is an open item: todo/tocheck.md item 2.
 #
 # Differences from the original, all deliberate:
 #   * only the Poisson model-vs-data figure is drawn. The original also made
@@ -84,6 +88,7 @@ source "${REPO_DIR}/config/env.sh"
 : "${DFE_RUN:?DFE_RUN not set}"
 : "${CTRL_TAG:?CTRL_TAG not set}"
 : "${DFE_BINS:?DFE_BINS not set}"
+: "${ROULETTE_SCALE:?ROULETTE_SCALE not set}"
 : "${NUM_CONVERGENCE:?NUM_CONVERGENCE not set}"
 : "${DFE_MAX_NOTRUN_FRAC:?DFE_MAX_NOTRUN_FRAC not set}"
 : "${DFE_MIN_CONVERGED_FRAC:?DFE_MIN_CONVERGED_FRAC not set}"
@@ -172,7 +177,7 @@ for i in "${!beds[@]}"; do
   echo "run_bestdfe: ${base} ${pdf}: collecting the fits in ${d}"
   if ! python3 - "$d" "$pdf" "${test_fs[$i]}" "${caches[$i]}" "${mut_t[$i]}" \
                 "${nas[$i]}" "${csvnames[$i]}" "$DFE_CUTOFF_RANK" \
-                "$DFE_PLOT_TOP" "${PNG:-0}" $DFE_BINS <<'PY'
+                "$DFE_PLOT_TOP" "${PNG:-0}" "$ROULETTE_SCALE" $DFE_BINS <<'PY'
 """Collect the DFE fits, pick the best, discretise it, plot.
 
 A faithful port of plot_converge_dfe_0430.py and plot_DFE_single.py; the
@@ -197,9 +202,9 @@ import dadi.DFE as DFE                    # noqa: E402
 (dfe_dir, pdf, testfs, cachefile, fsmutt, na_arg, csvname, cutoff_rank_arg,
  plot_top_arg) = sys.argv[1:10]
 want_png = sys.argv[10] not in ("", "0", "no", "false")
-bins = [float(b) for b in sys.argv[11:]]
+bins = [float(b) for b in sys.argv[12:]]
 
-ROULETTE_SCALE = 1.015e-7
+ROULETTE_SCALE = float(sys.argv[11])
 Na = float(na_arg)
 cutoff_rank = int(cutoff_rank_arg)
 plot_top = int(plot_top_arg)
@@ -252,7 +257,7 @@ scale_scaleparam = 1.0 / (2 * Na)
 # The original kept the LAST row instead - its dict was keyed by filename and
 # updated once per row inside the convergence-tracking loop, so each row
 # overwrote the previous. That was incidental, not intended (2026-09-30), and
-# the difference from the published values is recorded in docs/tocheck.md.
+# the difference from the published values is recorded in todo/tocheck.md.
 files = sorted(glob.glob(os.path.join(dfe_dir, "*.InferDFE.bestfits")))
 data_dict = {}
 names = None

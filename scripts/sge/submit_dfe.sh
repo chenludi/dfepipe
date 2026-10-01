@@ -86,7 +86,7 @@ fi
 
 if [[ $# -lt 2 ]]; then
   echo "usage: submit_dfe.sh <pdf> <bed> [bed...]" >&2
-  echo "       pdf is one of: ${PDFS:-neu gamma neugamma}" >&2
+  echo "       pdf is one of: ${PDFS}" >&2
   exit 2
 fi
 pdf="$1"; shift

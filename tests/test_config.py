@@ -159,3 +159,30 @@ def test_conf_sources_cleanly_under_set_u():
     assert r.returncode == 0, r.stderr
     for line in r.stdout.split():
         assert line.startswith("/") and "/config/" in line, line
+
+
+def test_no_stage_hardcodes_a_config_value():
+    """ROULETTE_SCALE was a config key honoured by two stages and hardcoded in
+    three, so overriding it would have given an Na from one constant and DFE
+    scaling from another, silently. Any config value a stage needs must be
+    passed in, never written as a literal beside the variable's own name."""
+    import re
+    offenders = []
+    for path in sorted(ROOT.glob("scripts/*/*.sh")):
+        text = path.read_text()
+        for name in ("ROULETTE_SCALE",):
+            for m in re.finditer(r"^%s\s*=\s*([0-9].*)$" % name, text, re.M):
+                offenders.append("%s: %s = %s" % (path.relative_to(ROOT), name,
+                                                  m.group(1)))
+    assert offenders == [], offenders
+
+
+def test_every_roulette_consumer_asserts_the_key():
+    """A stage that computes u must demand the value rather than invent one."""
+    missing = []
+    for path in sorted(ROOT.glob("scripts/*/*.sh")):
+        text = path.read_text()
+        if "avepersite_diploi_Roulette_mutrate" in text:
+            if 'ROULETTE_SCALE:?' not in text:
+                missing.append(str(path.relative_to(ROOT)))
+    assert missing == [], missing

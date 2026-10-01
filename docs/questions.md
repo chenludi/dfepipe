@@ -15,7 +15,7 @@ published value is the third. Cost here is 7e-9 in ll and the 6th decimal of
 shape, but it is systematic across every published fit and unbounded for a
 poorly converged file. **RESOLVED 2026-09-30: take the best row.** This is now
 the only deliberate numerical difference between the old and new pipelines;
-the impact on published values is a todo in docs/tocheck.md.
+the impact on published values is a todo in todo/tocheck.md.
 Two other scripts in the same pipeline already take the FIRST row
 (`dadi_cal_ll_neu_0723.py:112-127`, `make_p0_dfe_0430.py:206-221`).
 
@@ -75,8 +75,9 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
    `<CACHE_RUN>-<CACHE_MARKER>-<pdf>-<DFE_RUN>`.
 5. ~~Seven config keys the stages needed and `config/` lacks.~~ **Resolved
    2026-09-30:** every tunable is now in `config/pipeline.conf` and the stages
-   assert rather than default. `neugammazero` sits in its own section 6, "not
-   used by this pipeline". `scripts/checks/conf.py` reads the config so a
+   assert rather than default. `neugammazero` was later removed from the
+   pipeline altogether; everything needed to restore it is in
+   `todo/toimplement_pdf_neugammazero.md`. `scripts/checks/conf.py` reads the config so a
    check's argparse default is the configured value rather than a second copy.
 
 ### Outcome vocabulary and verdicts — resolved 2026-09-30

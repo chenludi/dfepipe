@@ -82,6 +82,7 @@ source "${REPO_DIR}/config/env.sh"
 : "${NEUGAMMA_UPPER:?NEUGAMMA_UPPER not set}"
 : "${NEUGAMMA_BINS:?NEUGAMMA_BINS not set}"
 : "${DFE_TIMEOUT:?DFE_TIMEOUT not set}"
+: "${ROULETTE_SCALE:?ROULETTE_SCALE not set}"
 
 if [[ $# -lt 2 ]]; then
   echo "usage: run_dfe.sh <pdf> <bed> [bed...]" >&2
@@ -224,7 +225,8 @@ if [[ -z "$pack_mode" ]]; then
     python3 - "$d" "$pdf" "${test_fs[$i]}" "${caches[$i]}" "${popts[$i]}" \
                  "${mut_t[$i]}" "${mut_c[$i]}" "${nas[$i]}" \
                  "$lower" "$upper" "$nbins" "$OPTCOUNT" "$MAXEVAL" \
-                 "$SGE_DFE_PE" "$NUM_CONVERGENCE" "$PACKNUMBER" <<'PY'
+                 "$SGE_DFE_PE" "$NUM_CONVERGENCE" "$PACKNUMBER" \
+                 "$ROULETTE_SCALE" <<'PY'
 """Write the InferDFE command packs. A faithful port of make_p0_dfe_0430.py.
 
 Differences are listed in run_dfe.sh's header.
@@ -240,7 +242,7 @@ import numpy as np
  lower_s, upper_s, nbins_s, optcount, maxeval, num_cpu, num_convergence,
  packnumber_s) = sys.argv[1:17]
 
-ROULETTE_SCALE = 1.015e-7
+ROULETTE_SCALE = float(sys.argv[17])
 nbins = int(nbins_s)
 packnumber = int(packnumber_s)
 Na = float(na_arg)
