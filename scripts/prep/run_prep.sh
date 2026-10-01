@@ -8,7 +8,7 @@
 # published results, in the order they run them:
 #
 #   submit_exHETquiencmask.sh:35  bedtools subtract  HET_BED                (heterochromatin)
-#   submit_exHETquiencmask.sh:37  bedtools subtract  CANDIDATE_NEUTRAL_BED  (quiescent)
+#   submit_exHETquiencmask.sh:37  bedtools subtract  QUI_BED  (quiescent)
 #   filt_nc-unmask.sh:38          bedtools subtract  CDS_BED                (coding)
 #   filt_nc-unmask.sh:46-47       bedtools intersect MASK_BED, then sort
 #
@@ -37,7 +37,7 @@ source "${REPO_DIR}/config/env.sh"
 : "${OUT:?OUT not set}"
 : "${PREP_RUN:?PREP_RUN not set}"
 : "${HET_BED:?HET_BED not set}"
-: "${CANDIDATE_NEUTRAL_BED:?CANDIDATE_NEUTRAL_BED not set}"
+: "${QUI_BED:?QUI_BED not set}"
 : "${CDS_BED:?CDS_BED not set}"
 : "${MASK_BED:?MASK_BED not set}"
 : "${BEDTOOLS_MOD:?BEDTOOLS_MOD not set}"
@@ -54,7 +54,7 @@ bp() { awk '{s += ($3 > $2) ? $3 - $2 : $2 - $3} END {printf "%d\n", s+0}' "$1";
 # --------------------------------------------------------------- preflight ----
 # Everything that can be checked before any work is checked first, so a typo in
 # one bed of twenty does not surface after an hour of bedtools.
-for f in "$HET_BED" "$CANDIDATE_NEUTRAL_BED" "$CDS_BED" "$MASK_BED"; do
+for f in "$HET_BED" "$QUI_BED" "$CDS_BED" "$MASK_BED"; do
   [[ -s "$f" ]] || { echo "prep: reference bed missing or empty: $f" >&2; exit 1; }
 done
 for bed in "$@"; do
@@ -98,7 +98,7 @@ for bed in "$@"; do
   printf 'minus_HET\t%s\n' "$(bp "${tmp}/exHET.bed")" >> "$lengths"
 
   echo "prep ${base}: 2/4 subtract quiescent (the control set)"
-  bedtools subtract -a "${tmp}/exHET.bed" -b "$CANDIDATE_NEUTRAL_BED" \
+  bedtools subtract -a "${tmp}/exHET.bed" -b "$QUI_BED" \
     > "${tmp}/exHET_noq.bed"
   printf 'minus_quiescent\t%s\n' "$(bp "${tmp}/exHET_noq.bed")" >> "$lengths"
 
@@ -121,7 +121,7 @@ for bed in "$@"; do
     echo "input_bed=${bed}"
     echo "output_bed=${out_bed}"
     echo "HET_BED=${HET_BED}"
-    echo "CANDIDATE_NEUTRAL_BED=${CANDIDATE_NEUTRAL_BED}"
+    echo "QUI_BED=${QUI_BED}"
     echo "CDS_BED=${CDS_BED}"
     echo "MASK_BED=${MASK_BED}"
     echo "filter_order=subtract_HET,subtract_quiescent,subtract_CDS,intersect_mask+sort+merge"

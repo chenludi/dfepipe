@@ -42,7 +42,7 @@ def test_conf_requires_out():
 
 def test_conf_rejects_unknown_demo_model():
     env = "OUT=/tmp REFS_DIR=/tmp VCF=/tmp/a MASK_BED=/tmp/b CDS_BED=/tmp/c HET_BED=/tmp/d "
-    env += "MUTRATE_TAB=/tmp/e CANDIDATE_NEUTRAL_BED=/tmp/f "
+    env += "MUTRATE_TAB=/tmp/e QUI_BED=/tmp/f "
     env += "PREP_RUN=r FS_RUN=r DEMO_RUN=r CACHE_RUN=r DFE_RUN=r SUMMARY_RUN=r "
     r = subprocess.run(
         ["bash", "-c", f"{env} DEMO_MODEL=nonsense source {ROOT}/config/pipeline.conf"],

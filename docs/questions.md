@@ -105,9 +105,12 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
    options (`--output-prefix`, `--cpus`, `--sample-sizes`).
 8. `get_fs_mut_bychr.sh` writes temp files into the mutation-rate reference
    directory, so 22 array tasks can collide.
-9. `plot_bestll_demo_args_0421.py:119-122` gives `bottlegrowth_1d` two
-   parameters; it has three, so that model aborts at :163. (Our config also said
-   `bottlegrowth`; dadi-cli calls it `bottlegrowth_1d`.)
+9. **Resolved 2026-09-30.** `plot_bestll_demo_args_0421.py:119-122` gives
+   `bottlegrowth_1d` two parameters where it takes three, so that model aborts
+   at :163. Moot for us: `DEMO_MODEL` now accepts only `three_epoch` and
+   `two_epoch`, the two with a p0 grid in `DEMO_P0_DIR`. Anything else needs its
+   grid built first, so the config refuses it up front rather than failing later
+   in run_demo.sh.
 10. `piperef_stddfe_4_plotdemo.sh:52` `dadi-cli Plot` evidently never ran — no
     `*.bestfits.pdf` exists beside any published result.
 11. Destructive paths: `rm -r $dirout` in steps 5 and 7; the second `.bak`
@@ -163,11 +166,12 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
     - dadi: demography and cache under 2.3.0, DFE fits under 2.3.3.
     Both ~1e-6 on everything measured.
 
-22. dadi warned during our cache build: "Most negative value is -178.88 ... If
-    negative values are very negative (<-1), rerun with larger values for
-    --grids". Your cache has the same 11 unusable spectra, so this is
-    reproduced, not introduced - but dadi is suggesting grids larger than
-    1500 1520 1540.
+22. **Resolved 2026-09-30: keep GRIDS="1500 1520 1540".** dadi warns during the
+    cache build that "Most negative value is -178.88 ... rerun with larger
+    values for --grids", and 11 of 300 spectra come back unusable - identically
+    in Chenlu's cache and ours, so reproduced, not introduced. Chenlu had
+    already tested larger grids in earlier work and they did not help much, so
+    the extra cache time buys nothing. No comparison run.
 
 ## Reference: how much a DFE actually moves
 
