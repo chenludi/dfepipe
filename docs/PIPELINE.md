@@ -197,10 +197,19 @@ the point was skipped rather than run.
 | `timeout` | a part-written `.opts`: killed by `DFE_TIMEOUT` | `fail_optimize` |
 | `not_run` | nothing, and no log row: the array task never reached it | `rerun` |
 
-The severity is the column to read first. `rerun` is the only one `RESUME=1`
-re-runs, and `timeout` is deliberately not in it: a starting point that needs
-more than `DFE_TIMEOUT` is a bad starting point, not a slow one, so a second
-attempt spends another `DFE_TIMEOUT` reaching the same place.
+The severity is the column to read first. `rerun` is the work a resume is for.
+
+What `RESUME=1` skips, precisely, is a starting point that already has a
+`.bestfits` and one logged `timeout`; everything else is attempted again. A
+timeout is excluded deliberately — a point needing more than `DFE_TIMEOUT` is a
+bad starting point, not a slow one, so retrying spends another `DFE_TIMEOUT`
+reaching the same place. `no_bestfit` points are *not* excluded, so they repeat
+on every pass; they are the fastest group, so this costs wall clock only.
+
+`not_run` arrives two ways: no log row at all, because the array task died before
+reaching that point, or a logged `not_run` from the deadline guard, which
+declines to start a fit when under `DFE_TIMEOUT` of `h_rt` remains. Both are
+`rerun`.
 
 **Checks.**
 

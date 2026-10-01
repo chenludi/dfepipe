@@ -359,8 +359,15 @@ def count_outcomes(dfe_dir):
         entry = logged.get(marker)
         if marker in have_bestfits:
             counts["n_bestfit"] += 1
-        elif entry and entry["outcome"] == "timeout":
-            counts["n_timeout"] += 1
+        elif entry and entry["outcome"] in ("timeout", "not_run"):
+            # `not_run` can be LOGGED, not only inferred from a missing row: the
+            # deadline guard writes it for every point it declines to start
+            # because under DFE_TIMEOUT of h_rt remained. Without this branch
+            # such a point fell through to `error` and was reported as `broken`
+            # ("re-running changes nothing") when it is exactly what RESUME=1
+            # exists to finish - and a whole run deferred that way raised a
+            # false FAIL.
+            counts["n_" + entry["outcome"]] += 1
         elif marker in optimised:
             counts["n_no_bestfit"] += 1
         elif entry:

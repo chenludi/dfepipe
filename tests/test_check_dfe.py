@@ -521,3 +521,41 @@ def test_resume_with_nothing_to_resume_fails():
     text = (pathlib.Path(__file__).resolve().parent.parent
             / "scripts" / "dfe" / "run_dfe.sh").read_text()
     assert "nothing to resume in" in text
+
+
+# ----------------------------------- a LOGGED not_run, from the deadline guard --
+
+def test_a_logged_not_run_is_counted_as_not_run(tmp_path):
+    """`not_run` is written to the log, not only inferred from a missing row: the
+    deadline guard logs it for every point it declines to start because under
+    DFE_TIMEOUT of h_rt remained. It fell through to `error` before, so the one
+    thing RESUME=1 exists to finish was reported as "re-running changes
+    nothing"."""
+    write_pack(tmp_path, "dadi-cli_dfe.0.sh", ["0", "1"])
+    write_log(tmp_path, [("0", "not_run", "0",
+                          "under 30m of h_rt left; RESUME=1 to finish")])
+    c = count_outcomes(tmp_path)
+    assert c["n_not_run"] == 2          # the logged one, and the one with no row
+    assert c["n_error"] == 0
+
+
+def test_a_whole_run_deferred_by_the_guard_is_not_a_false_FAIL(tmp_path):
+    """Every point deferred, all logged not_run: that is one extra RESUME pass,
+    not a broken setup. Counting them as `error` made assess_dfe raise
+    "all N starting points exited before running a single optimisation"."""
+    markers = [str(i) for i in range(5)]
+    write_pack(tmp_path, "dadi-cli_dfe.0.sh", markers)
+    write_log(tmp_path, [(m, "not_run", "0", "RESUME=1 to finish")
+                         for m in markers])
+    c = count_outcomes(tmp_path)
+    assert c["n_not_run"] == 5 and c["n_error"] == 0
+    status, reasons = assess(outcomes=c, n_fits=0, top=[])
+    assert not any("without optimising" in r for r in reasons), reasons
+
+
+def test_a_logged_not_run_reaches_the_rerun_severity(tmp_path):
+    """The severity is what a reader acts on, so it has to come out `rerun`."""
+    write_pack(tmp_path, "dadi-cli_dfe.0.sh", ["0"])
+    write_log(tmp_path, [("0", "not_run", "0", "RESUME=1 to finish")])
+    sev = severity_counts(count_outcomes(tmp_path), n_converged=0)
+    assert sev["rerun"] == 1 and sev["broken"] == 0

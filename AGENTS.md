@@ -13,6 +13,12 @@ number, stop and ask.
 
 ---
 
+**This pipeline is for human data.** Every reference input is human and GRCh38:
+1000 Genomes VCFs and accessibility mask, GENCODE CDS, Ernst ChromHMM states,
+ENCODE cCREs in the control definition, and Roulette mutation rates with a
+human-specific scale constant. Another species is a porting project, not a
+configuration change — see `todo/vendor_and_docs.md`.
+
 ## 1. What the pipeline does, in four sentences
 
 A set of sequences under selection carries fewer common variants and more rare
@@ -156,21 +162,37 @@ you), `DFE_TIMEOUT` (30 m; the slowest real fit measured was 7 m 53 s).
 
 ## 4. Running it
 
+**Two machines.** The push runs where you edit; everything else runs on the
+cluster, because `run_all.sh` calls `qsub` and the bed and reference data are
+there.
+
+**On your machine**, from the package root — is the cluster copy current? A stale
+script is the classic silent failure, and `CHECK=1` writes nothing:
+
+```bash
+CHECK=1 bash sync/push.sh <host>:<path>     # exits 1 and lists what differs
+bash sync/push.sh <host>:<path>             # only if it reported differences
+```
+
+The destination for this project is recorded at the top of
+`config/profiles/hoffman_replicate.conf`.
+
+**Then on the cluster**, one shell:
+
 ```bash
 cd <package>
-source config/profiles/<site>.conf
+source config/profiles/<site>.conf          # FIRST: pipeline.conf asserts OUT
 export PREP_RUN=... FS_RUN=... DEMO_RUN=... CACHE_RUN=... DFE_RUN=... SUMMARY_RUN=...
 
-# 1. is the cluster copy current? a stale script is the classic silent failure
-CHECK=1 bash sync/push.sh <host>:<path>
-bash sync/push.sh <host>:<path>
-
-# 2. see what would be submitted. always do this first
-DRY_RUN=1 bash scripts/chains/run_all.sh their.bed
-
-# 3. submit
+DRY_RUN=1 bash scripts/chains/run_all.sh their.bed    # always, first
 bash scripts/chains/run_all.sh their.bed
 ```
+
+The chain preflights the bed itself and refuses to submit on a FAIL, so §2a's
+manual `check_bed.py` call is only for showing the user the verdict before
+committing their cluster time. If you do run it by hand, `source
+config/pipeline.conf` too — `$CHROMS` and `$CTRL_FLANK` come from there, not
+from a profile.
 
 **The chain submits itself forward in three phases**, because two stages need the
 previous stage's output at *submission* time (`submit_cache.sh` reads the
@@ -227,17 +249,30 @@ starting point, with a severity saying what to do:
 | `no_bestfit` | `fail_optimize` | it optimised and reached no usable likelihood. Expected at the edge of the grid |
 | `timeout` | `fail_optimize` | a bad starting point, not a slow one. **Not worth re-running** |
 | `error` | `broken` | dadi-cli never started: cache path, `--demo-popt`, environment. Fix it; re-running changes nothing |
-| `not_run` | `rerun` | the array never reached it. **This is the only thing `RESUME=1` re-runs** |
+| `not_run` | `rerun` | the array never reached it, or the deadline guard deferred it. **The work a resume is for** |
 
 ---
 
 ## 6. When it goes wrong
 
-**Array tasks killed by the clock.** `RESUME=1 FROM=dfe bash
-scripts/chains/run_all.sh their.bed` re-runs exactly the `not_run` points,
-keeping everything finished. **Expect `fitneu` and `summary` to log a failure** —
-they refuse existing output and do not honour `RESUME`. Harmless; the neutral
-likelihood already exists. Use a new `SUMMARY_RUN` to get a fresh table.
+**Array tasks killed by the clock.**
+
+```bash
+SUMMARY_RUN=<new> RESUME=1 FROM=dfe bash scripts/chains/run_all.sh their.bed
+```
+
+What `RESUME=1` actually skips is **a starting point with a `.bestfits`, and one
+logged `timeout`**. Everything else is attempted again — so the `no_bestfit`
+points go round once more. They are the fastest group (under 4 minutes each), so
+this costs some wall clock and nothing else, but a resume is not as cheap as the
+`not_run` count alone suggests.
+
+The new `SUMMARY_RUN` is **required**, not tidiness: `run_summary.sh` and
+`run_bestpdf.sh` refuse an existing table and ignore `RESUME`.
+
+**Expect `fitneu` to log a failure.** It refuses its existing run directory and
+does not honour `RESUME`. Harmless — the neutral likelihood is already there and
+the summary reads it from that directory.
 
 **`FORCE=1` means three different things** — bypass an upstream gate, redo every
 DFE fit, overwrite a finished table. So `FORCE=1 RESUME=1` *discards* the fits
@@ -291,4 +326,20 @@ records/               what was actually run, dated
 
 Known-unfinished work is in `todo/`, not hidden: `tocheck.md` (open questions
 about the pipeline's own behaviour), `final_clean_rerun.md` (the acceptance
-test), `vendor_and_docs.md` (what is still outside the package).
+test), `vendor_and_docs.md` (what is still outside the package, and the `FORCE=1`
+overloading). **Read `todo/` before telling a user this package is finished** —
+each file records a dated incident, and they are the reason most of the guards
+exist.
+
+`records/` holds what was actually run, dated. `records/260929_dfe_validation.sh`
+is the most useful single file for seeing a real invocation end to end, though
+note it predates the `CACHE_MARKER` directory naming.
+
+### Three things that look like breakage and are not
+
+- **~22% of DFE starting points return `no_bestfit`.** The grid log-spaces shape
+  from 1e-10, and the smallest seeds cannot produce a likelihood. By design.
+- **dadi warns that 11 of 300 cache spectra are unusable.** Reproduced from the
+  original, not introduced; larger grids were tested and did not help.
+- **A `RESUME` run logs a `fitneu` failure.** `run_fitneu.sh` refuses an existing
+  run directory and ignores `RESUME`. The neutral likelihood is already there.

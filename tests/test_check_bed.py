@@ -175,3 +175,31 @@ def test_a_warning_does_not_stop_the_chain(tmp_path):
     r = run_chain(tmp_path, bed)
     assert r.returncode == 0
     assert "phase 1 submitted" in r.stdout
+
+
+# ------------------------------------------- the assembly is always stated --
+
+def test_a_clean_bed_still_says_the_build_was_not_confirmed(tmp_path):
+    """A silent PASS would read as "the assembly was verified", which is the one
+    thing this cannot do: hg19 coordinates sit inside hg38's extents, so no
+    coordinate test sees them. The verdict must say so every time."""
+    mask = write(tmp_path, "mask.bed", "chr1\t0\t1000000\n")
+    r = one(tmp_path, "chr1\t100\t200\n", mask=mask)
+    assert r["status"] == "PASS"
+    assert "CANNOT confirm the build" in r["assembly"]
+
+
+def test_every_row_carries_an_assembly_verdict(tmp_path):
+    """Including the structural failures, which never get far enough to judge."""
+    beds = [write(tmp_path, "a.bed", "chr1\t100\t200\n"),
+            write(tmp_path, "b.bed", "1\t100\t200\n"),
+            write(tmp_path, "c.bed", "chr1\t200\t100\n"),
+            str(tmp_path / "absent.bed")]
+    for r in rows_for(beds, CHROMS, 25000):
+        assert r.get("assembly"), r
+
+
+def test_the_printed_output_always_shows_the_assembly_line(tmp_path, capsys):
+    good = write(tmp_path, "good.bed", "chr1\t100\t200\n")
+    main(["--chroms", "1", good])
+    assert "assembly:" in capsys.readouterr().out

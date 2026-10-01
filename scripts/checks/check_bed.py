@@ -23,11 +23,15 @@ So this is a gate on the input, not a judgement of the result:
           usually means the bed is not the assembly the references are
     PASS   none of the above
 
+Every verdict states what happened about the assembly, including when the answer
+is "could not be determined". It cannot be determined from coordinates: hg19 and
+hg38 differ by a few hundred kb on most chromosomes, so an hg19 bed sits inside
+hg38's extents and no coordinate test sees it. A silent PASS would read as "the
+build was verified", which is the one thing this cannot do.
+
     python3 check_bed.py --chroms "1 2 3 ..." [--ctrl-flank 25000]
                         [--mask-bed <path>] [--out <dir> --run <key>] <bed>...
 
-The assembly is the one thing this cannot settle on its own: without MASK_BED it
-says so rather than implying the bed was checked.
 """
 import argparse
 import os
@@ -122,9 +126,14 @@ def mask_extents(path):
 
 
 def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
-    """(status, reasons, bp) for one bed."""
+    """(status, reasons, bp, assembly) for one bed.
+
+    `assembly` is always a sentence, never None: see the module docstring. On a
+    structural FAIL it is "not assessed", because the bed was not read far enough
+    to say anything about its coordinates.
+    """
     if problems:
-        return "FAIL", problems[:5], 0
+        return "FAIL", problems[:5], 0, "not assessed"
 
     wanted = {normalise(c) for c in chroms}
     present = set(stats)
@@ -137,7 +146,7 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
             "run analyses %s. A bed named without the 'chr' prefix is the usual "
             "cause, and it would otherwise fail hours later at concat."
             % (", ".join(sorted(present)[:5]) or "nothing",
-               ", ".join(sorted(wanted)[:5]))], 0
+               ", ".join(sorted(wanted)[:5]))], 0, "not assessed"
 
     reasons = []
     extra = sorted(present - wanted)
@@ -172,6 +181,16 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
             "each is windowed separately, so overlapping intervals are counted "
             "once but windowed twice" % overlaps)
 
+    # The assembly. This cannot be settled from coordinates: hg19 and hg38 differ
+    # by a few hundred kb on most chromosomes, so an hg19 bed sits comfortably
+    # inside hg38's extents and no coordinate test will see it. All that is
+    # possible is catching a gross mismatch.
+    #
+    # So the verdict always SAYS which of the two happened. Saying nothing when
+    # the gross check passed would let a reader take PASS for "the build was
+    # verified", which is the package's worst failure mode and is exactly what it
+    # cannot verify.
+    assembly = None
     if mask:
         beyond = []
         for c in sorted(usable):
@@ -184,12 +203,17 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
                 "coordinates run past the end of the chromosome in MASK_BED, so "
                 "the bed is probably not the assembly the reference data is: %s"
                 % "; ".join(beyond[:4]))
+            assembly = "gross mismatch against MASK_BED"
+        else:
+            assembly = ("no gross mismatch against MASK_BED - but this CANNOT "
+                        "confirm the build, since hg19 coordinates fall inside "
+                        "hg38 extents. Confirm the assembly by hand")
     else:
-        reasons.append(
-            "the assembly was not checked: no readable MASK_BED. Confirm by "
-            "hand that the bed matches the reference data's build")
+        assembly = ("not checked at all: no readable MASK_BED. Confirm the "
+                    "assembly by hand")
+        reasons.append("the assembly was not checked: no readable MASK_BED")
 
-    return ("WARN" if reasons else "PASS"), reasons, bp
+    return ("WARN" if reasons else "PASS"), reasons, bp, assembly
 
 
 def rows_for(beds, chroms, ctrl_flank, mask_bed=None):
@@ -199,21 +223,24 @@ def rows_for(beds, chroms, ctrl_flank, mask_bed=None):
         item = os.path.basename(bed)
         if not os.path.exists(bed) or os.path.getsize(bed) == 0:
             out.append({"item": item, "status": "FAIL", "n_intervals": 0,
-                        "bp": 0, "reason": "missing or empty: %s" % bed})
+                        "bp": 0, "assembly": "not assessed",
+                        "reason": "missing or empty: %s" % bed})
             continue
         try:
             stats, problems = read_bed(bed)
         except OSError as exc:
             out.append({"item": item, "status": "FAIL", "n_intervals": 0,
-                        "bp": 0, "reason": "cannot read %s: %s" % (bed, exc)})
+                        "bp": 0, "assembly": "not assessed",
+                        "reason": "cannot read %s: %s" % (bed, exc)})
             continue
-        status, reasons, bp = assess(bed, stats, problems, chroms, ctrl_flank,
-                                     mask)
+        status, reasons, bp, assembly = assess(bed, stats, problems, chroms,
+                                               ctrl_flank, mask)
         wanted = {normalise(c) for c in chroms}
         out.append({
             "item": item, "status": status,
             "n_intervals": sum(s["n"] for c, s in stats.items() if c in wanted),
-            "bp": bp, "reason": "; ".join(reasons) or "NA"})
+            "bp": bp, "assembly": assembly or "not assessed",
+            "reason": "; ".join(reasons) or "NA"})
     return out
 
 
@@ -238,6 +265,7 @@ def main(argv=None):
     for r in rows:
         print("  %s %s: %d intervals, %d bp" % (r["status"], r["item"],
                                                 r["n_intervals"], r["bp"]))
+        print("      assembly: %s" % r["assembly"])
         if r["status"] != "PASS":
             print("      %s" % r["reason"])
     # FAIL blocks; a WARN is information the user should have before waiting.
