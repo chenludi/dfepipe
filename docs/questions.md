@@ -148,7 +148,7 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
     the final bases, only the intermediate counts in lengths.tsv.
 17. GNU-only: `stat -c %s` (`piperef_stddfe_2_concatefs.sh`), `sed -i`
     (`piperef_stddfe_9_sumdfe.sh`).
-18. Checked and NOT a bug: `dadi_cal_ll_neu_0723.py:206-214` passes an unfolded
+18. Checked and not a bug: `dadi_cal_ll_neu_0723.py:206-214` passes an unfolded
     model against folded data, but `dadi.Inference.ll_per_bin` folds the model
     itself. Verified identical to 1e-11.
 

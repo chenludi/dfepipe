@@ -65,12 +65,12 @@ source "${REPO_DIR}/config/env.sh"
 : "${ROULETTE_SCALE:?ROULETTE_SCALE not set}"
 : "${NUM_CONVERGENCE:?NUM_CONVERGENCE not set}"
 : "${RESID_RARE_MAX_COUNT:?RESID_RARE_MAX_COUNT not set}"
-: "${RESID_MAX_RARE_WARN:?RESID_MAX_RARE_WARN not set}"
-: "${RESID_MAX_RARE_FAIL:?RESID_MAX_RARE_FAIL not set}"
+: "${RESID_MAX_RARE_LARGE:?RESID_MAX_RARE_LARGE not set}"
+: "${RESID_MAX_RARE_BADFIT:?RESID_MAX_RARE_BADFIT not set}"
 : "${RESID_BULK_BIAS_WARN:?RESID_BULK_BIAS_WARN not set}"
 : "${RESID_REST_OVER_RARE_MIN:?RESID_REST_OVER_RARE_MIN not set}"
-: "${G2_PER_SNP_WARN:?G2_PER_SNP_WARN not set}"
-: "${G2_PER_SNP_FAIL:?G2_PER_SNP_FAIL not set}"
+: "${G2_PER_SNP_LARGE:?G2_PER_SNP_LARGE not set}"
+: "${G2_PER_SNP_BADFIT:?G2_PER_SNP_BADFIT not set}"
 
 if [[ $# -eq 0 ]]; then
   echo "usage: run_fitneu.sh <bed> [bed...]" >&2
@@ -231,7 +231,7 @@ def cache_pts_l_func(sample_sizes):
     """dadi-cli's CACHE grid sizes (dadi_cal_ll_neu_0723.py:138-151).
 
     Not dadi-cli's pts_l_func. The arithmetic is copied from the original
-    unchanged, so the ll is the published one. It is NOT the grid the selection
+    unchanged, so the ll is the published one. It is not the grid the selection
     cache uses: at PROJECTION=160 this gives (354, 388, 422) while the cache is
     built on GRIDS="1500 1520 1540" (run_cache.sh, dadi-cli_cache_simp.sh:55), so
     the neutral null and the DFE fits do not share a grid - in this port or in the
@@ -335,11 +335,11 @@ if ! python3 "${REPO_DIR}/scripts/checks/check_dfe.py" \
        --out "${OUT}/dfe" --run "${CACHE_RUN}-${CACHE_MARKER}-neu-${DFE_RUN}" --pdf neu \
        --sfs-out "${OUT}/sfs" --fs-run "${FS_RUN}" \
        --rare-max-count "${RESID_RARE_MAX_COUNT}" \
-       --max-rare-warn "${RESID_MAX_RARE_WARN}" \
-       --max-rare-fail "${RESID_MAX_RARE_FAIL}" \
+       --max-rare-large "${RESID_MAX_RARE_LARGE}" \
+       --max-rare-badfit "${RESID_MAX_RARE_BADFIT}" \
        --bulk-bias-warn "${RESID_BULK_BIAS_WARN}" \
        --rest-over-rare-min "${RESID_REST_OVER_RARE_MIN}" \
-       --g2-warn "${G2_PER_SNP_WARN}" --g2-fail "${G2_PER_SNP_FAIL}" \
+       --g2-large "${G2_PER_SNP_LARGE}" --g2-badfit "${G2_PER_SNP_BADFIT}" \
        --num-convergence "${NUM_CONVERGENCE}" "$@"; then
   echo "WARNING: check_dfe.py failed; the neutral likelihood above is" >&2
   echo "         unaffected. Inspect the .dadi_cal_ll_neu_0723.log by hand." >&2

@@ -114,11 +114,11 @@ these two are accepted, because only they have a starting-point grid.
 
 | threshold | default | what it means |
 |---|---|---|
-| `RESID_MAX_RARE_WARN` | `25` | the largest absolute Anscombe residual among the rare bins (1 to `RESID_RARE_MAX_COUNT=4`). A WARN above it |
-| `RESID_MAX_RARE_FAIL` | `40` | beyond anything seen in past runs. Still only a WARN in effect — `classify()` FAILs only on structural problems |
+| `RESID_MAX_RARE_LARGE` | `25` | the largest absolute Anscombe residual among the rare bins (1 to `RESID_RARE_MAX_COUNT=4`). A WARN above it |
+| `RESID_MAX_RARE_BADFIT` | `40` | above this the message reads "the model is not a good fit". Advisory only: `classify()` fails on structural problems alone, never on a residual |
 | `RESID_BULK_BIAS_WARN` | `2.3` | the mean normalised residual over the non-rare bins. A systematic sign here means the model is wrong across the bulk of the spectrum, not just in one bin |
 | `RESID_REST_OVER_RARE_MIN` | `5` | warns when the largest residual is outside the rare bins, which is unusual and worth seeing |
-| `G2_PER_SNP_WARN` / `_FAIL` | `0.008` / `0.035` | Poisson deviance per SNP, `G² = 2Σ[d·ln(d/m) − (d−m)]`. Scaling by SNP count makes it comparable between a 1,500-SNP bin and a 500,000-SNP one |
+| `G2_PER_SNP_LARGE` / `_FAIL` | `0.008` / `0.035` | Poisson deviance per SNP, `G² = 2Σ[d·ln(d/m) − (d−m)]`. Scaling by SNP count makes it comparable between a 1,500-SNP bin and a 500,000-SNP one |
 
 These are percentiles of previously accepted fits, not statistical tests. They
 say "unusual", not "wrong", which is why they warn and never block. **The figure

@@ -20,12 +20,12 @@ from scripts.checks.check_demo import (
 
 # pipeline.conf's RESID_*/G2_* defaults, the values run_bestdemo.sh passes through.
 CFG = {
-    "max_rare_warn": 25.0,
-    "max_rare_fail": 40.0,
+    "max_rare_large": 25.0,
+    "max_rare_badfit": 40.0,
     "bulk_bias_warn": 2.3,
     "rest_over_rare_min": 5.0,
-    "g2_warn": 0.008,
-    "g2_fail": 0.035,
+    "g2_large": 0.008,
+    "g2_badfit": 0.035,
 }
 
 GOOD = {
@@ -55,14 +55,14 @@ def test_extreme_residual_only_warns():
     status, reasons = assess_demo(metrics(max_abs_rare=99.0), [-1000.0], CFG,
                                   na=18460.0, n_fits=256)
     assert status == "WARN"
-    assert any("max_abs_rare" in r for r in reasons)
+    assert any("rare-bin residual" in r for r in reasons)
 
 
 def test_extreme_deviance_only_warns():
     status, reasons = assess_demo(metrics(g2_per_snp=0.4), [-1000.0], CFG,
                                   na=18460.0, n_fits=256)
     assert status == "WARN"
-    assert any("g2_per_snp" in r for r in reasons)
+    assert any("deviance per SNP" in r for r in reasons)
 
 
 def test_model_zero_where_variants_observed_fails():

@@ -23,7 +23,7 @@ So this is a gate on the input, not a judgement of the result:
           bed, or one from a different genome
     PASS   none of the above
 
-The genome build is NOT checked, and the summary says so every time rather than
+The genome build is not checked, and the summary says so every time rather than
 letting a PASS imply it was. Coordinates are compared against the mask only to
 catch something grossly out of range - a corrupt bed, or one from a different
 genome. Two builds of the same genome differ by far less than that, so no
@@ -48,7 +48,7 @@ CHECK_TEMPLATE = "check_bed.%s.tsv"
 # chromosome, so some slack is needed, and 1 Mb is loose enough never to fire on
 # a normal bed.
 #
-# This is NOT an assembly check and is not presented as one. Two builds of the
+# This is not an assembly check and is not presented as one. Two builds of the
 # same genome differ by far less than this, so it cannot tell them apart; that
 # the build is unverifiable here is said once, in the summary line, rather than
 # hedged on every bed.
@@ -182,7 +182,7 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
             "entirely inside the interval, where controls cannot be - they can "
             "never find one and are dropped. Either raise CTRL_FLANK above half "
             "the longest interval, or the window needs to extend from the "
-            "interval EDGES rather than its centre, which is a change to what "
+            "interval edges rather than its centre, which is a change to what "
             "\"nearby\" means. todo/tocheck.md item 1."
             % (n_long, window, bp_long,
                100.0 * bp_long / bp if bp else 0.0, longest))
@@ -194,9 +194,9 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
     overlaps = sum(stats[c]["overlaps"] for c in usable)
     if overlaps:
         reasons.append(
-            "%d interval(s) overlap the one before. prep MERGES its output "
+            "%d interval(s) overlap the one before. prep merges its output "
             "(run_prep.sh:112), so each overlapping group becomes one interval "
-            "and gets ONE control window, centred on the merged span - not one "
+            "and gets one control window, centred on the merged span - not one "
             "window per input interval. Merge them yourself first if you want "
             "control over where those midpoints fall" % overlaps)
 
@@ -280,7 +280,7 @@ def main(argv=None):
             print("      %s" % r["reason"])
     # Said once, not hedged on every bed: the build is the thing this cannot
     # check, and a reader should hear it exactly as often as it is true.
-    print("  note: the genome build is NOT verified by this check. Confirm by "
+    print("  note: the genome build is not verified by this check. Confirm by "
           "hand that the bed matches the reference data.")
     # FAIL blocks; a WARN is information the user should have before waiting.
     return 1 if any(r["status"] == "FAIL" for r in rows) else 0

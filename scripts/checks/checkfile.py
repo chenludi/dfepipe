@@ -12,7 +12,7 @@ items would otherwise let a later row hide an earlier failure.
 
 Status vocabulary:
     PASS  nothing to report
-    WARN  unusual compared with previous runs; worth a look, not an error
+    WARN  worth a look, not an error; never blocks
     FAIL  almost certainly wrong
     SKIP  legitimately not applicable, e.g. a chromosome the bed has no intervals on
 

@@ -228,7 +228,7 @@ supports, and `num_nonneutral`.
 Every stage writes a check file. Four statuses, and the distinction matters:
 
 - **PASS** — nothing to look at.
-- **WARN** — unusual compared with past runs, not wrong. The residual and
+- **WARN** — worth a look, not wrong, and it never blocks. The residual and
   deviance thresholds are percentiles of previously accepted fits; they flag a
   fit worth looking at. **They never block.** Look at the figure.
 - **FAIL** — structural: nothing survived prep, a chromosome with intervals but

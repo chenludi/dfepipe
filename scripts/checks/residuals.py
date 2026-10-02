@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
 """Fit-quality metrics for a model-vs-data SFS comparison.
 
-**FOR REFERENCE ONLY.** This check flags fits that are worth a second look; it
-is not a rigorous accept/reject test. The thresholds are percentiles of 137
-previously finished fits, so WARN means "unusual compared with past runs", not
-"wrong". Residual and deviance thresholds NEVER fail, however extreme: residuals
-are tricky, they scale with SNP count and the rare bins swing hard for real
-reasons. FAIL is reserved for structural problems - no usable bins, or a model
-giving no probability where variants are observed - which do block a chain.
+For reference only. This check flags fits worth a second look; it is not an
+accept/reject test. A warning means "the residuals here are large", which is
+sometimes the expected answer - the neutral null is meant to fit badly on sites
+under selection, and it does.
 
-Only the metrics that were empirically shown to separate the one labelled bad
-fit from the 137 accepted ones are computed (calibrated 2026-09-29):
+Residual and deviance thresholds only ever warn, however extreme, which is why
+the config keys are named `..._LARGE` and `..._BADFIT`. They were once named
+`..._WARN` and `..._FAIL`, which implied the second tier stopped a run; it never
+did. FAIL is reserved for structural problems - no usable bins, or a model giving
+no usable probability where variants are observed - and those do block a chain.
+
+The thresholds were set from 137 gamma and neugamma fits (calibrated 2026-09-29).
+The calibration selected runs by `*_model_sfs.fs`, and the `_neu` directories
+hold none, so no neutral null contributed to them and there is no past-run range
+for that model at all. Messages therefore state the value and the threshold it
+crossed, and claim nothing about where previous runs landed. The calibration data
+is not shipped with this package.
+
+The metrics kept are the ones that separated the one labelled bad fit from the
+137:
 
 - ``max_abs_rare``    worst |residual| over allele counts 1..rare_max_count.
                       0 of 137 accepted fits exceed the bad fit (47.2), and it
@@ -129,12 +139,12 @@ def residual_metrics(model, data, rare_max_count=4):
 def classify(metrics, cfg):
     """PASS / WARN / FAIL plus short human-readable reasons.
 
-    ``cfg`` carries ``max_rare_warn``, ``max_rare_fail``, ``bulk_bias_warn``,
-    ``rest_over_rare_min``, ``g2_warn`` and ``g2_fail``. The verdict is about
+    ``cfg`` carries ``max_rare_large``, ``max_rare_badfit``, ``bulk_bias_warn``,
+    ``rest_over_rare_min``, ``g2_large`` and ``g2_badfit``. The verdict is about
     fit quality only: convergence is reported elsewhere and never decides it.
 
-    Remember the verdict is advisory (see the module docstring): WARN means
-    "unusual compared with 137 previous fits", not "wrong".
+    Remember the verdict is advisory (see the module docstring): a warning means
+    "this fit is worth looking at", not "wrong", and nothing here blocks.
     """
     max_rare = float(metrics.get("max_abs_rare", 0.0))
     max_rest = float(metrics.get("max_abs_rest", 0.0))
@@ -156,37 +166,43 @@ def classify(metrics, cfg):
     if fails:
         return "FAIL", fails
 
-    # Residual and deviance thresholds only ever WARN. Residuals are tricky: they
-    # scale with SNP count, the rare bins swing hard for real reasons, and the
-    # thresholds are percentiles of past runs rather than a test of validity. FAIL
-    # is reserved above for structural problems, which block a chain.
+    # Residual and deviance thresholds only ever warn, which is why the config
+    # keys are named ..._LARGE and ..._BADFIT rather than ..._WARN and ..._FAIL:
+    # the old names implied the second tier stopped a run, and it never did.
+    # Residuals are tricky - they scale with SNP count and the rare bins swing
+    # hard for real reasons - so FAIL is reserved above for structural problems.
     warns = []
-    if max_rare > cfg["max_rare_fail"]:
+    # Plain wording, and no claim about past runs. The thresholds come from
+    # gamma and neugamma fits only, so "beyond anything seen before" was not true
+    # of the neutral null, which has no calibration set at all.
+    if max_rare > cfg["max_rare_badfit"]:
         warns.append(
-            f"max_abs_rare {max_rare:.1f} is beyond anything seen in past runs "
-            f"(>{cfg['max_rare_fail']}): look at the figure")
-    elif max_rare > cfg["max_rare_warn"]:
+            f"the rare-bin residual is large ({max_rare:.1f}, over "
+            f"{cfg['max_rare_badfit']}): the model is not a good fit to the rare "
+            "frequency classes; look at the figure")
+    elif max_rare > cfg["max_rare_large"]:
         warns.append(
-            f"max_abs_rare {max_rare:.1f} exceeds WARN threshold "
-            f"{cfg['max_rare_warn']}")
-    if g2_per_snp > cfg["g2_fail"]:
+            f"the rare-bin residual is on the large side ({max_rare:.1f}, over "
+            f"{cfg['max_rare_large']}): worth a look at the figure")
+    if g2_per_snp > cfg["g2_badfit"]:
         warns.append(
-            f"g2_per_snp {g2_per_snp:.4g} is beyond anything seen in past runs "
-            f"(>{cfg['g2_fail']}): look at the figure")
-    elif g2_per_snp > cfg["g2_warn"]:
+            f"the deviance per SNP is large ({g2_per_snp:.4g}, over "
+            f"{cfg['g2_badfit']}): the model is not a good fit; look at the "
+            "figure")
+    elif g2_per_snp > cfg["g2_large"]:
         warns.append(
-            f"g2_per_snp {g2_per_snp:.4g} exceeds WARN threshold "
-            f"{cfg['g2_warn']}")
+            f"the deviance per SNP is on the large side ({g2_per_snp:.4g}, over "
+            f"{cfg['g2_large']})")
     if bias > cfg["bulk_bias_warn"]:
         direction = "overestimates" if mean_rest > 0 else "underestimates"
         warns.append(
-            f"bulk bias mean_rest_norm {bias:.2f} exceeds "
-            f"{cfg['bulk_bias_warn']}: the model systematically {direction} "
-            "the common frequency classes")
+            f"the model systematically {direction} the common frequency classes "
+            f"(bulk bias {bias:.2f}, over {cfg['bulk_bias_warn']})")
     if max_rest > max_rare and max_rest > cfg["rest_over_rare_min"]:
         warns.append(
-            f"max_abs_rest {max_rest:.1f} is worse than max_abs_rare "
-            f"{max_rare:.1f}: the worst bin sits outside the rare classes")
+            f"the worst-fitting bin is not a rare one: the common-class residual "
+            f"({max_rest:.1f}) is worse than the rare-class residual "
+            f"({max_rare:.1f})")
     if warns:
         return "WARN", warns
 

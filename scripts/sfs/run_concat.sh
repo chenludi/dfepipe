@@ -16,12 +16,12 @@
 #
 # Differences from the original, all deliberate:
 #   * `stat -c %s` is GNU-only; `wc -c` is portable and is what the size sanity
-#     check actually needs. The thresholds (661 and 500 BYTES - the original's
+#     check actually needs. The thresholds (661 and 500 bytes - the original's
 #     message says KB, but the numbers are bytes) are unchanged.
 #   * a missing chromosome is NAMED. The original demanded exactly 22 files and
 #     printed only "There are not 22 chromosomes" without naming which, so
 #     finding it meant checking by hand - as record_250624_243-40-45.sh records
-#     doing for chr4 of phyloP243 40-45. It did NOT produce a wrong file: it
+#     doing for chr4 of phyloP243 40-45. It did not produce a wrong file: it
 #     required exactly 22 inputs (piperef_stddfe_2_concatefs.sh:63,70) and wrote
 #     nothing otherwise. This port instead concatenates the chromosomes the bed
 #     actually has sites on, so it CAN write a genome-wide file over fewer than

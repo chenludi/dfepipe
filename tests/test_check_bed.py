@@ -106,7 +106,7 @@ def test_the_long_interval_warning_quantifies_the_loss(tmp_path):
     assert "2 interval(s) are longer" in r["reason"]
     assert "260000 bp" in r["reason"]
     assert "longest 200000 bp" in r["reason"]
-    assert "EDGES" in r["reason"]          # names the alternative
+    assert "edges" in r["reason"]          # names the alternative
 
 
 def test_an_interval_just_under_the_window_does_not(tmp_path):
@@ -122,7 +122,7 @@ def test_unsorted_and_overlapping_intervals_warn(tmp_path):
     assert "overlap the one before" in r
     # prep merges, so an overlapping group gets ONE window, not one each. The
     # warning used to claim the opposite.
-    assert "ONE control window" in r and "run_prep.sh:112" in r
+    assert "one control window" in r and "run_prep.sh:112" in r
 
 
 def test_a_coordinate_far_past_the_mask_warns_as_out_of_range(tmp_path):
@@ -138,7 +138,7 @@ def test_the_summary_says_the_build_is_not_verified(tmp_path, capsys):
     good = write(tmp_path, "good.bed", "chr1\t100\t200\n")
     main(["--chroms", "1", good])
     out = capsys.readouterr().out
-    assert "genome build is NOT verified" in out
+    assert "genome build is not verified" in out
     assert "hg19" not in out              # claims nothing unsourced
 
 

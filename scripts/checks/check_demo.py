@@ -259,18 +259,18 @@ def main(argv=None):
     ap.add_argument("--fs-run", required=True, help="FS_RUN")
     ap.add_argument("--rare-max-count", type=int,
                     default=conf.get_int("RESID_RARE_MAX_COUNT", 4))
-    ap.add_argument("--max-rare-warn", type=float,
-                    default=conf.get_float("RESID_MAX_RARE_WARN", 25.0))
-    ap.add_argument("--max-rare-fail", type=float,
-                    default=conf.get_float("RESID_MAX_RARE_FAIL", 40.0))
+    ap.add_argument("--max-rare-large", type=float,
+                    default=conf.get_float("RESID_MAX_RARE_LARGE", 25.0))
+    ap.add_argument("--max-rare-badfit", type=float,
+                    default=conf.get_float("RESID_MAX_RARE_BADFIT", 40.0))
     ap.add_argument("--bulk-bias-warn", type=float,
                     default=conf.get_float("RESID_BULK_BIAS_WARN", 2.3))
     ap.add_argument("--rest-over-rare-min", type=float,
                     default=conf.get_float("RESID_REST_OVER_RARE_MIN", 5.0))
-    ap.add_argument("--g2-warn", type=float,
-                    default=conf.get_float("G2_PER_SNP_WARN", 0.008))
-    ap.add_argument("--g2-fail", type=float,
-                    default=conf.get_float("G2_PER_SNP_FAIL", 0.035))
+    ap.add_argument("--g2-large", type=float,
+                    default=conf.get_float("G2_PER_SNP_LARGE", 0.008))
+    ap.add_argument("--g2-badfit", type=float,
+                    default=conf.get_float("G2_PER_SNP_BADFIT", 0.035))
     ap.add_argument("--num-convergence", type=int,
                     default=conf.get_int("NUM_CONVERGENCE", 5),
                     help="how many top fits the convergence spread covers")
@@ -278,12 +278,12 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     cfg = {
-        "max_rare_warn": a.max_rare_warn,
-        "max_rare_fail": a.max_rare_fail,
+        "max_rare_large": a.max_rare_large,
+        "max_rare_badfit": a.max_rare_badfit,
         "bulk_bias_warn": a.bulk_bias_warn,
         "rest_over_rare_min": a.rest_over_rare_min,
-        "g2_warn": a.g2_warn,
-        "g2_fail": a.g2_fail,
+        "g2_large": a.g2_large,
+        "g2_badfit": a.g2_badfit,
     }
 
     rows = []

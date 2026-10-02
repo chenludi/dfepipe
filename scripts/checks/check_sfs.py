@@ -33,7 +33,7 @@ Summary row:
           judge, not one to stop on.
 
 FOR REFERENCE ONLY applies to the WARN, as everywhere in this pipeline: it means
-"unusual compared with past runs", not "wrong".
+"this is worth a look", not "wrong", and it does not block.
 """
 import argparse
 import csv

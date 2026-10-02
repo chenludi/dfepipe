@@ -414,6 +414,6 @@ for i in "${!beds[@]}"; do
   cat "${bychr}/lengths.${chrom}.tsv"
 done
 
-# No checkpoint here: the verdict is per bed across ALL chromosomes, so it can
+# No checkpoint here: the verdict is per bed across all chromosomes, so it can
 # only be reached once the array has finished. run_concat.sh runs check_sfs.py.
 exit 0

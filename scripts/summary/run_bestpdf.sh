@@ -40,7 +40,7 @@
 #     is a different test on a short sequence than on a long one, so below
 #     MODELSEL_SMALL_L the nominal chi-square cutoff is used and the row records
 #     which applied in modelsel_level. The comparison is against `l`, the
-#     analysed length in bp (length_adj_inputbed), NOT against the mutational
+#     analysed length in bp (length_adj_inputbed), not against the mutational
 #     target `ul` - 1.5 Mb is a bp figure. Set MODELSEL_SMALL_L=0 for the
 #     original behaviour.
 #   * `ul` comes from run_summary.sh rather than being recomputed here.

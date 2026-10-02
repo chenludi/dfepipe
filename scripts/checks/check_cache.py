@@ -11,7 +11,7 @@ chain (FORCE=1 overrides):
     the file is below CACHE_MIN_SIZE_FRAC of the size gamma_pts and PROJECTION
                                imply. A cache is a gamma_pts x (projection+1)
                                float64 array, so its size follows from the
-                               config and NOT from the data - see
+                               config and not from the data - see
                                expected_bytes(). Anything much smaller was
                                truncated, or was built with fewer gamma points
                                than this run asked for. A fixed byte count

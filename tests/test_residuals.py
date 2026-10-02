@@ -28,12 +28,12 @@ EXPECTED_KEYS = {
 
 # Thresholds as calibrated on 137 previous fits (plan, Global Constraints).
 CFG = {
-    "max_rare_warn": 25.0,
-    "max_rare_fail": 40.0,
+    "max_rare_large": 25.0,
+    "max_rare_badfit": 40.0,
     "bulk_bias_warn": 2.3,
     "rest_over_rare_min": 5.0,
-    "g2_warn": 0.008,
-    "g2_fail": 0.035,
+    "g2_large": 0.008,
+    "g2_badfit": 0.035,
 }
 
 
@@ -208,25 +208,25 @@ def test_classify_fail_model_zero_beats_everything():
 def test_classify_warns_not_fails_on_extreme_max_abs_rare():
     status, reasons = classify(base_metrics(max_abs_rare=47.2), CFG)
     assert status == "WARN"
-    assert any("max_abs_rare" in r for r in reasons)
+    assert any("rare-bin residual" in r for r in reasons)
 
 
 def test_classify_warns_not_fails_on_extreme_g2_per_snp():
     status, reasons = classify(base_metrics(g2_per_snp=0.0395), CFG)
     assert status == "WARN"
-    assert any("g2_per_snp" in r for r in reasons)
+    assert any("deviance per SNP" in r for r in reasons)
 
 
 def test_classify_warn_on_max_abs_rare():
     status, reasons = classify(base_metrics(max_abs_rare=30.0), CFG)
     assert status == "WARN"
-    assert any("max_abs_rare" in r for r in reasons)
+    assert any("rare-bin residual" in r for r in reasons)
 
 
 def test_classify_warn_on_g2_per_snp():
     status, reasons = classify(base_metrics(g2_per_snp=0.02), CFG)
     assert status == "WARN"
-    assert any("g2_per_snp" in r for r in reasons)
+    assert any("deviance per SNP" in r for r in reasons)
 
 
 def test_classify_warn_on_bulk_bias():
@@ -239,7 +239,7 @@ def test_classify_warn_on_bulk_bias():
 def test_classify_warn_on_rest_worse_than_rare():
     status, reasons = classify(base_metrics(max_abs_rare=3.0, max_abs_rest=8.0), CFG)
     assert status == "WARN"
-    assert any("max_abs_rest" in r for r in reasons)
+    assert any("worst-fitting bin is not a rare one" in r for r in reasons)
 
 
 def test_classify_rest_over_rare_needs_both_conditions():
@@ -250,9 +250,9 @@ def test_classify_rest_over_rare_needs_both_conditions():
 
 
 def test_classify_thresholds_are_strict_inequalities():
-    assert classify(base_metrics(max_abs_rare=CFG["max_rare_warn"]), CFG)[0] == "PASS"
-    assert classify(base_metrics(max_abs_rare=CFG["max_rare_fail"]), CFG)[0] == "WARN"
-    assert classify(base_metrics(g2_per_snp=CFG["g2_warn"]), CFG)[0] == "PASS"
+    assert classify(base_metrics(max_abs_rare=CFG["max_rare_large"]), CFG)[0] == "PASS"
+    assert classify(base_metrics(max_abs_rare=CFG["max_rare_badfit"]), CFG)[0] == "WARN"
+    assert classify(base_metrics(g2_per_snp=CFG["g2_large"]), CFG)[0] == "PASS"
     assert classify(base_metrics(mean_rest_norm=CFG["bulk_bias_warn"]), CFG)[0] == "PASS"
 
 
@@ -265,8 +265,8 @@ def test_classify_reports_several_reasons_at_once():
 
 def test_everything_masked_fails_rather_than_passing():
     """A fit where no bin could be measured must not come out clean."""
-    cfg = dict(max_rare_warn=25, max_rare_fail=40, bulk_bias_warn=2.3,
-               rest_over_rare_min=5, g2_warn=0.008, g2_fail=0.035)
+    cfg = dict(max_rare_large=25, max_rare_badfit=40, bulk_bias_warn=2.3,
+               rest_over_rare_min=5, g2_large=0.008, g2_badfit=0.035)
     m = {"max_abs_rare": 0.0, "max_abs_rest": 0.0, "mean_rest": 0.0,
          "mean_rest_norm": 0.0, "g2_per_snp": 0.0, "n_masked_model_zero": 0,
          "n_bins_used": 0}
@@ -277,8 +277,8 @@ def test_everything_masked_fails_rather_than_passing():
 
 def test_structural_problems_still_fail_while_residuals_only_warn():
     """FAIL is reserved for broken data; residual thresholds are advisory."""
-    cfg = dict(max_rare_warn=25, max_rare_fail=40, bulk_bias_warn=2.3,
-               rest_over_rare_min=5, g2_warn=0.008, g2_fail=0.035)
+    cfg = dict(max_rare_large=25, max_rare_badfit=40, bulk_bias_warn=2.3,
+               rest_over_rare_min=5, g2_large=0.008, g2_badfit=0.035)
     wild = {"max_abs_rare": 999.0, "max_abs_rest": 0.0, "mean_rest": 0.0,
             "mean_rest_norm": 0.0, "g2_per_snp": 99.0, "n_masked_model_zero": 0,
             "n_bins_used": 70}

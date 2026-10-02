@@ -62,7 +62,7 @@
 #   * the cutoff index is clamped to the last available fit. The original
 #     indexes llsort[max(round(n*0.05), 2)] unguarded, so a run with two or
 #     fewer converged fits dies with an IndexError.
-#   * the `ll ~ param` figure over ALL converged fits is drawn with the points
+#   * the `ll ~ param` figure over all converged fits is drawn with the points
 #     correctly paired. The original sorts `lls` in place while it is still the
 #     y-vector of that scatter (plot_converge_dfe_0430.py:337-341, 353), so
 #     every point in those six figures pairs a parameter with another fit's
@@ -94,12 +94,12 @@ source "${REPO_DIR}/config/env.sh"
 : "${DFE_MIN_CONVERGED_FRAC:?DFE_MIN_CONVERGED_FRAC not set}"
 : "${DFE_MIN_CONVERGED_N:?DFE_MIN_CONVERGED_N not set}"
 : "${RESID_RARE_MAX_COUNT:?RESID_RARE_MAX_COUNT not set}"
-: "${RESID_MAX_RARE_WARN:?RESID_MAX_RARE_WARN not set}"
-: "${RESID_MAX_RARE_FAIL:?RESID_MAX_RARE_FAIL not set}"
+: "${RESID_MAX_RARE_LARGE:?RESID_MAX_RARE_LARGE not set}"
+: "${RESID_MAX_RARE_BADFIT:?RESID_MAX_RARE_BADFIT not set}"
 : "${RESID_BULK_BIAS_WARN:?RESID_BULK_BIAS_WARN not set}"
 : "${RESID_REST_OVER_RARE_MIN:?RESID_REST_OVER_RARE_MIN not set}"
-: "${G2_PER_SNP_WARN:?G2_PER_SNP_WARN not set}"
-: "${G2_PER_SNP_FAIL:?G2_PER_SNP_FAIL not set}"
+: "${G2_PER_SNP_LARGE:?G2_PER_SNP_LARGE not set}"
+: "${G2_PER_SNP_BADFIT:?G2_PER_SNP_BADFIT not set}"
 
 : "${DFE_CUTOFF_RANK:?DFE_CUTOFF_RANK not set}"
 : "${DFE_PLOT_TOP:?DFE_PLOT_TOP not set}"
@@ -463,11 +463,11 @@ if ! python3 "${REPO_DIR}/scripts/checks/check_dfe.py" \
        --neu-run "${CACHE_RUN}-${CACHE_MARKER}-neu-${DFE_RUN}" \
        --sfs-out "${OUT}/sfs" --fs-run "${FS_RUN}" \
        --rare-max-count "${RESID_RARE_MAX_COUNT}" \
-       --max-rare-warn "${RESID_MAX_RARE_WARN}" \
-       --max-rare-fail "${RESID_MAX_RARE_FAIL}" \
+       --max-rare-large "${RESID_MAX_RARE_LARGE}" \
+       --max-rare-badfit "${RESID_MAX_RARE_BADFIT}" \
        --bulk-bias-warn "${RESID_BULK_BIAS_WARN}" \
        --rest-over-rare-min "${RESID_REST_OVER_RARE_MIN}" \
-       --g2-warn "${G2_PER_SNP_WARN}" --g2-fail "${G2_PER_SNP_FAIL}" \
+       --g2-large "${G2_PER_SNP_LARGE}" --g2-badfit "${G2_PER_SNP_BADFIT}" \
        --num-convergence "${NUM_CONVERGENCE}" \
        --max-notrun-frac "${DFE_MAX_NOTRUN_FRAC}" \
        --min-converged-frac "${DFE_MIN_CONVERGED_FRAC}" \

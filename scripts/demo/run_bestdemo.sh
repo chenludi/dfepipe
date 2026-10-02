@@ -57,12 +57,12 @@ source "${REPO_DIR}/config/env.sh"
 : "${CTRL_TAG:?CTRL_TAG not set}"
 : "${NUM_CONVERGENCE:?NUM_CONVERGENCE not set}"
 : "${RESID_RARE_MAX_COUNT:?RESID_RARE_MAX_COUNT not set}"
-: "${RESID_MAX_RARE_WARN:?RESID_MAX_RARE_WARN not set}"
-: "${RESID_MAX_RARE_FAIL:?RESID_MAX_RARE_FAIL not set}"
+: "${RESID_MAX_RARE_LARGE:?RESID_MAX_RARE_LARGE not set}"
+: "${RESID_MAX_RARE_BADFIT:?RESID_MAX_RARE_BADFIT not set}"
 : "${RESID_BULK_BIAS_WARN:?RESID_BULK_BIAS_WARN not set}"
 : "${RESID_REST_OVER_RARE_MIN:?RESID_REST_OVER_RARE_MIN not set}"
-: "${G2_PER_SNP_WARN:?G2_PER_SNP_WARN not set}"
-: "${G2_PER_SNP_FAIL:?G2_PER_SNP_FAIL not set}"
+: "${G2_PER_SNP_LARGE:?G2_PER_SNP_LARGE not set}"
+: "${G2_PER_SNP_BADFIT:?G2_PER_SNP_BADFIT not set}"
 
 # Positive here, as in piperef_stddfe_4_plotdemo.sh:43; negated internally.
 : "${DEMO_LL_CUTOFF:?DEMO_LL_CUTOFF not set}"
@@ -380,11 +380,11 @@ if ! python3 "${REPO_DIR}/scripts/checks/check_demo.py" \
        --out "${OUT}/demo" --run "${FS_RUN}-${DEMO_MODEL}-${DEMO_RUN}" \
        --sfs-out "${OUT}/sfs" --fs-run "${FS_RUN}" \
        --rare-max-count "${RESID_RARE_MAX_COUNT}" \
-       --max-rare-warn "${RESID_MAX_RARE_WARN}" \
-       --max-rare-fail "${RESID_MAX_RARE_FAIL}" \
+       --max-rare-large "${RESID_MAX_RARE_LARGE}" \
+       --max-rare-badfit "${RESID_MAX_RARE_BADFIT}" \
        --bulk-bias-warn "${RESID_BULK_BIAS_WARN}" \
        --rest-over-rare-min "${RESID_REST_OVER_RARE_MIN}" \
-       --g2-warn "${G2_PER_SNP_WARN}" --g2-fail "${G2_PER_SNP_FAIL}" \
+       --g2-large "${G2_PER_SNP_LARGE}" --g2-badfit "${G2_PER_SNP_BADFIT}" \
        --num-convergence "${NUM_CONVERGENCE}" "$@"; then
   echo "WARNING: check_demo.py failed; the demo output above is unaffected." >&2
   echo "         Inspect best_inference.txt and sfs_bestfit.pdf by hand before" >&2
