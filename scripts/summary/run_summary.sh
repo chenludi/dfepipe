@@ -15,7 +15,9 @@
 #   per pdf           the six discretised bins of dfe_<...>_<pdf>.csv
 #   u, l, l_inputbed  from the genome-wide row of the test fsmut table, as
 #                     summary_getul.py:19-33 computes them:
-#                       u          = 1.015e-7 * avepersite_diploi_Roulette_mutrate / 2
+#                       u          = ROULETTE_SCALE * avepersite_diploi_Roulette_mutrate / 2
+#                                    (ROULETTE_SCALE defaults to the original's
+#                                    hardcoded 1.015e-7, summary_getul.py:18)
 #                       l          = length_adj_inputbed
 #                       l_inputbed = length_inputbed
 #                     and ul = u * l, which several downstream scripts expect.
@@ -106,13 +108,13 @@ BIN_PREFIX = "bin_"
 # this stage exists to avoid.
 #
 # What each pdf's large_ll.txt holds: dadi-cli's own parameters, then theta and
-# the three run_bestdfe.sh derives (:415-417 and the header it writes).
+# the three run_bestdfe.sh derives (:309-313 and the header it writes).
 PDF_PARAMS = {
     "gamma":    ["shape", "scale", "theta", "scale_div2Na", "sdadi", "Ne"],
     "neugamma": ["shape", "scale", "pneu", "theta", "scale_div2Na", "sdadi", "Ne"],
 }
 
-# The bin labels, formatted exactly as run_bestdfe.sh:415 does - the edges go
+# The bin labels, formatted exactly as run_bestdfe.sh:420 does - the edges go
 # through float() first, so "0" becomes "0.0" and "inf" stays "inf".
 edges = [float(b) for b in bins_arg.split()]
 BIN_LABELS = ["%s <= |s| < %s" % (edges[j], edges[j + 1])
@@ -189,7 +191,7 @@ def read_ul(path):
     """(u, l, l_inputbed) from the genome-wide row of a fsmut table.
 
     summary_getul.py:19-33. The genome-wide row is the first data row, and its
-    `fsfile` carries the `.etal` marker concatefs.R adds; the original treats a
+    `fsfile` carries the `.etal` marker concate_mut.R:40 adds; the original treats a
     row without it as a format error, and so do we.
     """
     try:

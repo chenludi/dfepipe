@@ -20,7 +20,7 @@
 #      L = length_adj_inputbed (:96-114).
 #   3. fits with ll <= the cutoff are dropped. The cutoff is DEMO_LL_CUTOFF,
 #      given positive and negated (500 in piperef_stddfe_4_plotdemo.sh:43); if
-#      it is stricter than the best fit it falls back to max(ll) - 100 (:222).
+#      it is stricter than the best fit it falls back to max(ll) - 100 (:223-224).
 #   4. the winner is the largest ll among what is left; best_inference.txt
 #      records it as `key:value` lines, in the historical order, and the later
 #      stages grep it for `max_ll_key:` and `Na:`.
@@ -36,8 +36,8 @@
 #   * the model-vs-data figure is named sfs_bestfit.pdf rather than
 #     `<the whole bestfits file name>.pdf`, and is written into the run
 #     directory rather than copied to a dated ~/mv_<date> viewing directory.
-#     No such PDF exists beside the published results, so that `dadi-cli Plot`
-#     call evidently did not run; it is verified working here.
+#     The original's Plot call did run and its figures are on disk (667
+#     *.InferDM.bestfits.pdf, including the Tx run's); only the name differs.
 #   * the best-fit model spectrum is written out as bestfit_model.fs, which is
 #     what check_demo.py measures the residuals on.
 #   * PDF only; PNG=1 additionally writes PNG.
@@ -330,9 +330,11 @@ bestfits = hits[0]
 
 # The model spectrum as a file, for check_demo.py to measure residuals on. The
 # parameters are read and the grids chosen by dadi-cli's own helpers, and the
-# result is folded and optimally scaled to the data, so it is the same spectrum
-# `dadi-cli Plot` draws against the data and the residuals and the figure can
-# never disagree.
+# result is folded and optimally scaled to the data. That matches what the figure
+# shows: dadi-cli's Plot.py never folds, but the two dadi functions it calls both
+# do - Inference.optimal_sfs_scaling:664-665 folds before computing the scaling,
+# and Plotting.plot_1d_comp_Poisson folds before plotting - so the residuals here
+# and the residuals in sfs_bestfit.pdf are measured on the same array.
 from dadi_cli.Models import get_model                                  # noqa: E402
 from dadi_cli.utilities import get_opts_and_theta, pts_l_func          # noqa: E402
 

@@ -12,7 +12,7 @@ Claims in this package that still need a source quoted here:
 
 - `ROULETTE_SCALE = 1.015e-7` (`config/pipeline.conf`), which converts a
   Roulette table value to a per-site diploid rate. Currently cited only to
-  `dadi_cal_ll_neu_0723.py:160`, which is where the pipeline got it, not where
+  `dadi_cal_ll_neu_0723.py:155`, which is where the pipeline got it, not where
   it comes from. Needs the Roulette paper or its documentation.
 - the `1e-4` threshold below which `neugamma` treats a selection coefficient as
   neutral (`setup/patches/dadi_DFE_PDFs.patch`). Cited to the patch itself.

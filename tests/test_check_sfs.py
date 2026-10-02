@@ -91,10 +91,20 @@ def test_exactly_min_snps_is_not_a_failure():
     assert assess_summary(n_snps=MIN_SNPS, hasqui_ratio=0.99, failed_chroms=[])[0] == "PASS"
 
 
+def test_the_worst_published_bed_is_not_blocked():
+    """The threshold was 0.90, which FAILed 8 of the 280 published beds -
+    top3stats_TxEnh 0.790, TxEnh 0.803, TxEx 0.827, Tx 0.871, TSS 0.879 - and so
+    would have blocked the Tx run this package was validated against.
+    proportion_hasquictrl.tsv, 5th percentile 0.913, minimum 0.790."""
+    for ratio in (0.790, 0.803, 0.827, 0.838, 0.871, 0.879):
+        assert assess_summary(n_snps=50000, hasqui_ratio=ratio,
+                              failed_chroms=[])[0] == "PASS", ratio
+
+
 def test_low_hasqui_ratio_fails():
     """Losing test sites for want of a nearby control is a design question, not
     a broken run, so it never blocks."""
-    status, reasons = assess_summary(n_snps=50000, hasqui_ratio=0.80,
+    status, reasons = assess_summary(n_snps=50000, hasqui_ratio=0.60,
                                      failed_chroms=[])
     assert status == "FAIL"
     assert any("control" in r for r in reasons)

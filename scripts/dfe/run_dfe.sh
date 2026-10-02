@@ -256,8 +256,9 @@ def die(msg):
 def getul(fsmutfile):
     """2*u*L from the genome-wide row of an fsmut table (make_p0...:170-188).
 
-    The factor 2 is the original's; it cancels in the ratio below but is kept so
-    the ratio's floating-point value is bit-for-bit the published one.
+    The factor 2 is the original's. It cancels exactly in the ratio below, so
+    keeping it changes no value; it is kept to stay line-by-line comparable with
+    the original.
     """
     with open(fsmutfile) as fh:
         row = next(csv.DictReader(fh, delimiter="\t"))

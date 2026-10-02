@@ -19,8 +19,13 @@
 #     check actually needs. The thresholds (661 and 500 BYTES - the original's
 #     message says KB, but the numbers are bytes) are unchanged.
 #   * a missing chromosome is NAMED. The original demanded exactly 22 files and
-#     printed only "There are not 22 chromosomes", which is how chr4 went
-#     missing from one bin unnoticed (record_250624_243-40-45.sh).
+#     printed only "There are not 22 chromosomes" without naming which, so
+#     finding it meant checking by hand - as record_250624_243-40-45.sh records
+#     doing for chr4 of phyloP243 40-45. It did NOT produce a wrong file: it
+#     required exactly 22 inputs (piperef_stddfe_2_concatefs.sh:63,70) and wrote
+#     nothing otherwise. This port instead concatenates the chromosomes the bed
+#     actually has sites on, so it CAN write a genome-wide file over fewer than
+#     22 - recorded in concat_chroms.tsv, since the name still says chrs_1t22.
 #   * the per-chromosome files are left in place under bychr/ instead of being
 #     moved to an archive directory: results are keyed by FS_RUN, so nothing has
 #     to be moved out of the way to keep runs apart.

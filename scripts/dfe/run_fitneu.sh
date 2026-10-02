@@ -230,8 +230,12 @@ def get_opts_and_theta(filename, gen_cache=False):
 def cache_pts_l_func(sample_sizes):
     """dadi-cli's CACHE grid sizes (dadi_cal_ll_neu_0723.py:138-151).
 
-    Not dadi-cli's pts_l_func: the neutral model is evaluated on the same grid
-    the selection cache was built on, so the null and the DFE fits share it.
+    Not dadi-cli's pts_l_func. The arithmetic is copied from the original
+    unchanged, so the ll is the published one. It is NOT the grid the selection
+    cache uses: at PROJECTION=160 this gives (354, 388, 422) while the cache is
+    built on GRIDS="1500 1520 1540" (run_cache.sh, dadi-cli_cache_simp.sh:55), so
+    the neutral null and the DFE fits do not share a grid - in this port or in the
+    original. An earlier version of this docstring claimed they did.
     """
     n = max(sample_sizes)
     return (int(n * 2.2) + 2, int(n * 2.4) + 4, int(n * 2.6) + 6)

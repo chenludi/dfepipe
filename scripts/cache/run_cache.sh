@@ -9,7 +9,10 @@
 # comes from that stage's best_inference.txt.
 #
 # Ported from submit_dadi-cli_cache_simp.sh (which fit, which Na, the output
-# name) and dadi-cli_cache_simp.sh:53-92 (the bounds and the GenerateCache call):
+# name) and dadi-cli_cache_simp.sh (the bounds at :79-81, the grid at :55, the
+# gamma_pts default at :59, and the GenerateCache call at :117-118). The two
+# non-default marker rows in config/cache_markers.tsv come from a third original,
+# pipefs_exinitials_6_cache.sh:128-137:
 #
 #   max_ll_key   from best_inference.txt, then *.<max_ll_key>.InferDM.bestfits
 #                beside it is the winning fit passed as --demo-popt
@@ -18,8 +21,11 @@
 #                formatted with awk "%.10f" exactly as the original
 #   --model      <dadi model>_sel, e.g. three_epoch_sel
 #
-# This is a ~10 hour job on 10 cores per bed. Nothing here is cheap to redo, so
-# an existing cache is skipped rather than rebuilt; FORCE=1 rebuilds it.
+# Measured 17 min on 10 cores for phastCons17way 0-5 at the default marker
+# (grids 1500 1520 1540, 300 gamma points). The original asked for h_rt=10:10:00
+# (submit_dadi-cli_cache_simp.sh:8), which was a queue request, not a measurement;
+# an earlier version of this header repeated it as "a ~10 hour job". An existing
+# cache is skipped rather than rebuilt; FORCE=1 rebuilds it.
 #
 # CACHE_MARKER names the parameter set and appears both in the run directory and
 # in the output file name. It is resolved ONCE, before any bed, against

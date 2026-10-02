@@ -12,8 +12,15 @@
 #   filt_nc-unmask.sh:38          bedtools subtract  CDS_BED                (coding)
 #   filt_nc-unmask.sh:46-47       bedtools intersect MASK_BED, then sort
 #
-# The quiescent subtraction is not optional bookkeeping: those sites become the
-# neutral CONTROL set in the sfs stage, so a test site must never also be one.
+# The quiescent subtraction is not optional bookkeeping. The control set the sfs
+# stage uses (NEUTRAL_CTRL_DIR, qui2_<chrom>.bed) is a strict SUBSET of QUI_BED -
+# quiescent and non-coding and mask-passing and free of ENCODE enhancer/promoter
+# annotation, 688 Mb against QUI_BED's 968 Mb - so subtracting all of QUI_BED here
+# guarantees no test site can also be a control. The two are different files and
+# the names invite confusion; see AGENTS.md section 2c.
+#
+# Disjointness is also enforced where the controls are built
+# (windctrl_splitchr.sh:58, ported at run_sfs_chrom.sh), not only here.
 # The output name keeps the historical convention s.nc_exHET_noq.<base>.bed,
 # which is what filt_nc-unmask.sh produced ("s.nc_" prefixed onto the name of
 # its input, itself already "exHET_noq.<base>.bed").

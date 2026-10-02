@@ -7,7 +7,7 @@
 # Takes no arguments: it reads the sumdfe.tsv that run_summary.sh wrote for this
 # SUMMARY_RUN and writes bestpdf_sumdfe.tsv beside it.
 #
-# Ported from summary_getbestpdf.py. The comparison, unchanged (:44-57):
+# Ported from summary_getbestpdf.py. The comparison, unchanged (:44-64):
 #
 #   delta_gamma_neu      = ll_gamma    - ll_neu
 #   delta_neugamma_gamma = ll_neugamma - ll_gamma
@@ -22,7 +22,7 @@
 # gets a `pdf_best_<confidence>` column, plus `pdf_best_allconfidence` which is
 # filled only when every level agrees. Then the winning pdf's six bins are
 # copied into `<primary>_bin_*`, with the neutral case being [1, 0, 0, 0, 0, 0]
-# (:124-126), and num_nonneutral = (1 - first bin) * ul (:170-176).
+# (:124-126), and num_nonneutral = (1 - first bin) * ul (:172-177).
 #
 # MODELSEL_PRIMARY is `delta_50`: an empirical choice of Chenlu's, not derived
 # from a test statistic. The chi_5% / chi_0.10% rows are the nominal
@@ -130,7 +130,7 @@ def read_cutoffs(path):
 
 
 def best_pdf(deltas, cut):
-    """summary_getbestpdf.py:44-57, unchanged.
+    """summary_getbestpdf.py:44-64, unchanged.
 
     `deltas` is None for any comparison whose likelihood is missing, in which
     case no claim can be made and the answer is None rather than `neutral` -
@@ -166,10 +166,19 @@ with open(in_tab) as fh:
 if not rows:
     die("%s has a header but no rows" % in_tab)
 
+# The reported columns carry the confidence level in their NAME, as
+# summary_getbestpdf.py:161,165 wrote them: `pdf_plotting_<level>` and
+# `<level>_<bin label>`. That is not cosmetic - the manuscript figure scripts
+# index these names literally (plot_manuscript_stackDFE.py:71-76,83,
+# plot_ms_non-neutral.py:49, plot_bestdfe_vs_real.py:33), so a table written
+# with the shorter names `pdf_plotting` / `best_bin_<label>` cannot be fed to
+# them at all. An earlier version of this script wrote the short names.
+PLOT_LEVEL = primary
 new_cols = (["ll_gamma-ll_neu", "ll_neugamma-ll_gamma", "ll_neugamma-ll_neu"]
             + ["pdf_best_%s" % c for c in levels]
-            + ["pdf_best_allconfidence", "modelsel_level", "pdf_plotting"]
-            + ["best_bin_%s" % b for b in BIN_LABELS]
+            + ["pdf_best_allconfidence", "modelsel_level",
+               "pdf_plotting_%s" % PLOT_LEVEL]
+            + ["%s_%s" % (PLOT_LEVEL, b) for b in BIN_LABELS]
             + ["num_nonneutral"])
 
 for row in rows:
@@ -205,7 +214,7 @@ for row in rows:
              else primary)
     row["modelsel_level"] = level
     chosen = picks.get(level)
-    row["pdf_plotting"] = chosen or "NA"
+    row["pdf_plotting_%s" % PLOT_LEVEL] = chosen or "NA"
 
     if chosen is None:
         values = [None] * len(BIN_LABELS)
@@ -214,7 +223,8 @@ for row in rows:
     else:
         values = [num(row.get("%s_bin_%s" % (chosen, b))) for b in BIN_LABELS]
     for label, value in zip(BIN_LABELS, values):
-        row["best_bin_%s" % label] = "NA" if value is None else repr(value)
+        row["%s_%s" % (PLOT_LEVEL, label)] = ("NA" if value is None
+                                              else repr(value))
 
     ul = num(row.get("ul"))
     first = values[0]
@@ -238,7 +248,7 @@ with open(path, "w") as fh:
 
 for row in rows:
     print("bestpdf: %s: %s at %s (all levels: %s)"
-          % (row.get("outputbase"), row.get("pdf_plotting"),
+          % (row.get("outputbase"), row.get("pdf_plotting_%s" % PLOT_LEVEL),
              row.get("modelsel_level"),
              row.get("pdf_best_allconfidence") or "disagree"))
 print("bestpdf: %d bed(s), %d columns -> bestpdf_sumdfe.tsv"

@@ -302,6 +302,14 @@ for i in "${!beds[@]}"; do
   printf 'prep_chr\t%s\n' "$(bp "$chrbed")" >> "$lengths"
 
   # MERGE_BEFORE_WINDOW decides what the control window is centred on. See the
+  # Merging was added to windctrl_splitchr.sh on 2024/11/04. This switch cannot
+  # recover the behaviour before that, because run_prep.sh:112 merges prep's
+  # output and this stage reads prep's bed - so the bed is merged either way and
+  # the branch below is cosmetic. The published runs from before 2024/11/04 (ELS,
+  # EnhA, PromF, TSS, BivProm, PLS, the phastCons17 bins - questions.md item 21)
+  # therefore used an UNMERGED windowing this package does not reproduce. Measured
+  # at -26 bp in 202.7 Mb for ELS, far below the bootstrap spread, which is why
+  # the validation still matched. todo/tocheck.md item 1.
   # config: merging was added to windctrl_splitchr.sh on 2024/11/04, so results
   # built before that date need MERGE_BEFORE_WINDOW=0 to be reproduced.
   if [[ "${MERGE_BEFORE_WINDOW}" == "1" ]]; then
@@ -309,7 +317,7 @@ for i in "${!beds[@]}"; do
     sort -T "$tmp" -k1,1 -k2,2n "$chrbed" > "${tmp}/sorted.bed"
     bedtools merge -i "${tmp}/sorted.bed" > "${tmp}/merged.bed"
   else
-    echo "sfs ${chrom}: ${base} 1/5 sort the test bed (MERGE_BEFORE_WINDOW=0: pre-2024/11/04 behaviour)"
+    echo "sfs ${chrom}: ${base} 1/5 sort the test bed (MERGE_BEFORE_WINDOW=0; prep already merged, so this is a no-op)"
     sort -T "$tmp" -k1,1 -k2,2n "$chrbed" > "${tmp}/merged.bed"
   fi
   printf 'merged_chr\t%s\n' "$(bp "${tmp}/merged.bed")" >> "$lengths"

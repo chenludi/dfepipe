@@ -4,11 +4,11 @@ an SFS produce one, is there enough data to fit, and how much of the test set
 survived control pairing?
 
 The stage runs as an SGE array job, one task per chromosome, so a task that is
-killed or times out leaves a hole that nothing else notices: the concatenation
-script that produced the published results demands exactly 22 files and does not
-say which one is absent, which is how chr4 silently went missing from one bin
-(records/../record_250624_243-40-45.sh). This check therefore reports per
-chromosome, and names the missing ones.
+killed or times out leaves a hole. The concatenation script that produced the
+published results caught it - it demanded exactly 22 files and wrote nothing
+otherwise - but did not say WHICH was absent, so finding it meant checking by
+hand, as record_250624_243-40-45.sh records doing for chr4 of phyloP243 40-45.
+This check therefore reports per chromosome and names the missing ones.
 
 The check file carries one row per "<bed>:<chrom>" plus one "<bed>" summary row.
 Items must be unique - checkfile.write_check enforces it - so a later row can
@@ -25,10 +25,12 @@ Per chromosome:
 Summary row:
     FAIL  any chromosome FAILed, or fewer than MIN_SNPS SNPs in total. Below
           MIN_SNPS the spectrum is too thin to fit anything, so this blocks.
-    FAIL  the has_qui bp is under MIN_HASQUI_FRAC of what prep produced: test
+    FAIL  the has_qui bp is under HASQUI_MIN_FRAC of what prep produced: test
           sites are being lost for want of a candidate-neutral site inside
-          [mid-CTRL_FLANK, mid+CTRL_FLANK]. That is a design question about the
-          window and the candidate set, not a broken run, so it never blocks.
+          [mid-CTRL_FLANK, mid+CTRL_FLANK], so whatever survives is a biased
+          subset. This DOES block the chain, like every FAIL (gate.py); FORCE=1
+          proceeds. An earlier version of this docstring said it never blocks,
+          which was wrong.
 
 FOR REFERENCE ONLY applies to the WARN, as everywhere in this pipeline: it means
 "unusual compared with past runs", not "wrong".

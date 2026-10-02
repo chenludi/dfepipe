@@ -101,7 +101,7 @@ def test_conf_loader_reads_the_real_config():
     from conf import Conf
     c = Conf(str(ROOT / "config" / "pipeline.conf"))
     assert c.get_int("MIN_SNPS", -1) == 500
-    assert c.get_float("HASQUI_MIN_FRAC", -1.0) == 0.90
+    assert c.get_float("HASQUI_MIN_FRAC", -1.0) == 0.75
     assert c.get("NEUGAMMA_UPPER", "") == "2 1e8 1"
     # a missing key falls back rather than raising
     assert c.get_int("NO_SUCH_KEY", 7) == 7

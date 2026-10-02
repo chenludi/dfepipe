@@ -71,7 +71,7 @@ def test_gamma_wins_when_it_clears_the_margin_and_neugamma_adds_nothing(tmp_path
     assert run(tmp_path).returncode == 0
     r = result(tmp_path)
     assert r["pdf_best_delta_50"] == "gamma"
-    assert r["pdf_plotting"] == "gamma"
+    assert r["pdf_plotting_delta_50"] == "gamma"
 
 
 def test_neutral_wins_when_gamma_does_not_clear_the_margin(tmp_path):
@@ -133,8 +133,8 @@ def test_the_winning_pdfs_bins_are_copied(tmp_path):
     setup(tmp_path, ll_neu=-2000.0, ll_gamma=-1000.0, ll_neugamma=-900.0)
     run(tmp_path)
     r = result(tmp_path)
-    assert r["pdf_plotting"] == "neugamma"
-    got = [float(r["best_bin_%s" % b]) for b in BINS]
+    assert r["pdf_plotting_delta_50"] == "neugamma"
+    got = [float(r["delta_50_%s" % b]) for b in BINS]
     assert got == pytest.approx(NEUGAMMA_BINS)
 
 
@@ -144,8 +144,8 @@ def test_a_neutral_verdict_gives_all_mass_to_the_first_bin(tmp_path):
     setup(tmp_path, ll_neu=-1010.0, ll_gamma=-1000.0, ll_neugamma=-1000.0)
     run(tmp_path)
     r = result(tmp_path)
-    assert r["pdf_plotting"] == "neutral"
-    got = [float(r["best_bin_%s" % b]) for b in BINS]
+    assert r["pdf_plotting_delta_50"] == "neutral"
+    got = [float(r["delta_50_%s" % b]) for b in BINS]
     assert got == pytest.approx([1.0, 0, 0, 0, 0, 0])
 
 
@@ -172,7 +172,7 @@ def test_a_small_target_uses_the_small_cutoff(tmp_path):
     run(tmp_path)
     r = result(tmp_path)
     assert r["modelsel_level"] == "chi_5%"
-    assert r["pdf_plotting"] == "gamma"          # delta_50 would say neutral
+    assert r["pdf_plotting_delta_50"] == "gamma"          # delta_50 would say neutral
     assert r["pdf_best_delta_50"] == "neutral"   # still recorded
 
 
@@ -182,7 +182,7 @@ def test_a_large_target_uses_the_primary_cutoff(tmp_path):
     run(tmp_path)
     r = result(tmp_path)
     assert r["modelsel_level"] == "delta_50"
-    assert r["pdf_plotting"] == "neutral"
+    assert r["pdf_plotting_delta_50"] == "neutral"
 
 
 def test_small_l_zero_restores_the_original_single_cutoff(tmp_path):
@@ -201,7 +201,7 @@ def test_a_missing_likelihood_gives_NA_not_a_verdict(tmp_path):
     assert run(tmp_path).returncode == 0
     r = result(tmp_path)
     assert r["ll_gamma-ll_neu"] == "NA"
-    assert r["pdf_best_delta_50"] == "NA" and r["pdf_plotting"] == "NA"
+    assert r["pdf_best_delta_50"] == "NA" and r["pdf_plotting_delta_50"] == "NA"
     assert r["pdf_best_allconfidence"] == ""
     assert r["num_nonneutral"] == "NA"
 
@@ -253,4 +253,4 @@ def test_with_the_rule_off_a_short_bed_uses_the_primary_cutoff(tmp_path):
     run(tmp_path, small_l="0")
     r = result(tmp_path)
     assert r["modelsel_level"] == "delta_50"
-    assert r["pdf_plotting"] == "neutral"
+    assert r["pdf_plotting_delta_50"] == "neutral"
