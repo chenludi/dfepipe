@@ -4,6 +4,7 @@
 #   bash sync/push.sh <host>:<path>        push the package
 #   DRY_RUN=1 bash sync/push.sh <host>:<path>   show what would change
 #   CHECK=1   bash sync/push.sh <host>:<path>   compare only, change nothing
+#   ALLOW_RUNNING=1 bash sync/push.sh ...       push even with jobs in the queue
 #
 #   bash sync/push.sh hoffman2:project-klohmuel/noncdoingdfe/test_0118/dfepipe
 #
@@ -17,6 +18,14 @@
 # and a stage that silently did not update is the failure this guards against.
 # Permissions and times are left alone, because cluster filesystems often refuse
 # them and the package does not care.
+#
+# A push is refused while you have jobs in the queue on that host, because a
+# running stage reads its scripts from this directory as it goes. That is not
+# hypothetical: pushing run_cache.sh twelve minutes into a cache job left the job
+# running the pre-push copy, so its checkpoint never ran, no check file was
+# written, and the gate then stopped bestdfe, summary and bestpdf. The cache
+# itself was fine; three stages stopped because of the push. ALLOW_RUNNING=1
+# overrides, for when the queued jobs are unrelated to the package.
 #
 # Output is NOT synced. Results live under $OUT on the cluster and are never
 # copied back by this script - they are large, and overwriting a result with a
@@ -37,6 +46,50 @@ if [[ $# -gt 1 || -z "$dest" ]]; then
   exit 2
 fi
 [[ "$dest" == *:* ]] || { echo "push.sh: destination needs <host>:<path>" >&2; exit 2; }
+
+# ---------------------------------------------------- refuse to push mid-run --
+# Only for a real push: CHECK and DRY_RUN write nothing, so they are always safe.
+if [[ "${DRY_RUN:-0}" != "1" && "${CHECK:-0}" != "1" \
+      && "${ALLOW_RUNNING:-0}" != "1" ]]; then
+  _host="${dest%%:*}"
+  # Found the same way config/env.sh:52-71 finds it, because a non-interactive
+  # ssh does not get the login shell's PATH and qstat is usually not on it.
+  # The remote snippet writes no temp file on purpose: $TMPDIR and /tmp are not
+  # writable on every login node (they are not on hoffman2), and a probe that
+  # fails for that reason would be indistinguishable from an idle queue.
+  _q="$(ssh -o BatchMode=yes -o ConnectTimeout=30 "$_host" '
+      export SGE_ROOT="${SGE_ROOT:-/u/systems/UGE8.6.4}"
+      export SGE_CELL="${SGE_CELL:-hoffman2}"
+      for c in "$(command -v qstat 2>/dev/null)" \
+               "${SGE_ROOT}/bin/lx-amd64/qstat" /u/local/bin/qstat; do
+        [ -n "$c" ] && [ -x "$c" ] || continue
+        out=$("$c" -u "$USER" 2>/dev/null); rc=$?
+        # A blank qstat means an empty queue ONLY when it also succeeded. A
+        # failed qstat prints nothing either, and reading that as "idle" is the
+        # mistake this whole block exists to prevent.
+        [ $rc -eq 0 ] || continue
+        printf "%s" "$out" | awk "NR>2" | grep -c . || true
+        exit 0
+      done
+      echo unknown' 2>/dev/null | tail -1 | tr -d "[:space:]" || true)"
+  # `|| true` so an ssh that cannot connect at all leaves _q empty and falls into
+  # the message below. Without it, set -e aborts here with ssh's own status and
+  # no explanation, which is the least useful thing this script could do.
+  if [[ "$_q" == "unknown" || -z "$_q" ]]; then
+    echo "push.sh: could not ask ${_host} whether you have jobs running." >&2
+    echo "         qstat was not runnable there, and a push during a run can" >&2
+    echo "         make a job read half-updated scripts. Check by hand, then" >&2
+    echo "         ALLOW_RUNNING=1 bash sync/push.sh ${dest}" >&2
+    exit 1
+  fi
+  if [[ "$_q" != "0" ]]; then
+    echo "push.sh: ${_q} job(s) of yours are in the queue on ${_host}." >&2
+    echo "         A running stage reads its scripts from the destination as it" >&2
+    echo "         goes, so pushing now can leave it running a mixture. Wait for" >&2
+    echo "         them, or ALLOW_RUNNING=1 bash sync/push.sh ${dest}" >&2
+    exit 1
+  fi
+fi
 
 # Everything the package needs to run, and nothing that is generated.
 EXCLUDES=(
