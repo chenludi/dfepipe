@@ -77,12 +77,16 @@ def expected_bytes(gamma_pts, projection):
 
 
 def assess_cache(nbytes, usable_frac, gamma_lo, gamma_hi, na, min_bytes,
-                 min_usable, s_high=0.5, killed=False):
+                 min_usable, s_high=None, killed=False):
     """(status, reasons) for one cache. See the module docstring.
 
     `nbytes` is None when the .bpkl is absent, `usable_frac` and the gamma
     bounds None when it could not be read. `na` is the Na the bounds were
-    derived from, None when unknown; `s_high` is GAMMA_S_HIGH, so the range
+    derived from, None when unknown; `s_high` is GAMMA_S_HIGH, or None when the marker
+    sets its gamma bounds absolutely rather than as 2*s*Na - in that case there is
+    no 2*s*Na to compare against and the range test is skipped. It used to receive
+    the config default here, which compared an absolute bound against an unrelated
+    number. The range
     warning compares against the bound this run actually asked for.
     """
     if nbytes is None and killed:
@@ -105,7 +109,7 @@ def assess_cache(nbytes, usable_frac, gamma_lo, gamma_hi, na, min_bytes,
                         % (100 * usable_frac)]
 
     status, reasons = "PASS", []
-    if na is not None and gamma_hi is not None:
+    if na is not None and gamma_hi is not None and s_high is not None:
         expected_hi = 2 * s_high * na
         if gamma_hi < expected_hi * RANGE_TOLERANCE:
             status = "WARN"
@@ -268,17 +272,20 @@ def main(argv=None):
     ap.add_argument("--min-usable", type=float,
                     default=conf.get_float("CACHE_MIN_USABLE_FRAC", 0.9),
                     help="CACHE_MIN_USABLE_FRAC")
-    ap.add_argument("--gamma-s-high", type=float,
-                    default=conf.get_float("GAMMA_S_HIGH", 0.5),
-                    help="GAMMA_S_HIGH; the cache should reach 2*GAMMA_S_HIGH*Na")
+    # A string, not a float: empty means the marker gives absolute gamma bounds,
+    # so there is no 2*s*Na for the range test to use.
+    ap.add_argument("--gamma-s-high", default="",
+                    help="GAMMA_S_HIGH; empty when the marker sets gamma bounds "
+                         "absolutely, which skips the range test")
     ap.add_argument("beds", nargs="+", help="the input beds the stage was run on")
     a = ap.parse_args(argv)
+    s_high = float(a.gamma_s_high) if str(a.gamma_s_high).strip() else None
 
     for bed in a.beds:
         base = _bed_base(bed)
         cache_dir = os.path.join(a.out, base, a.run)
         row = row_for(cache_dir, base, a.marker, a.min_size_frac, a.min_usable,
-                      a.gamma_s_high, a.gamma_pts, a.projection)
+                      s_high, a.gamma_pts, a.projection)
         # One file per bed, in the bed's own run directory: array tasks must not
         # race. Written even when the directory is otherwise empty, so a missing
         # cache is recorded rather than silently absent.

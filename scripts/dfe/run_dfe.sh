@@ -32,6 +32,18 @@
 #                          (what worker_dfe.sh does, one SGE task per pack)
 #
 # Differences from the original, all deliberate:
+#   * DFE_TIMEOUT is 30m, where submit_dadi-cli_dfebash.sh:66 set 60m. A fit that
+#     would have converged between 30 and 60 minutes now yields no .bestfits and
+#     cannot win, so this can only lose fits, never gain them. Of 165 fits that
+#     produced a best fit the slowest took 7m53s, but that is the distribution of
+#     successful fits, which is the wrong conditioning for this question.
+#     Compounding it, a fit logged `timeout` is not retried (see RESUME below),
+#     where the original gave it the full 60m again on each resubmission.
+#   * a fit skipped because it was logged `timeout`, and one skipped by the
+#     DFE_TASK_DEADLINE guard, both mean the set of starting points actually
+#     optimised depends on this run's h_rt and on the previous run's
+#     fit_outcomes.tsv. Neither existed in the original, so a RESUME can report a
+#     different winning fit from a fresh run over the same grid.
 #   * no `rm -r $dirout` (piperef_stddfe_7_fitgamneug.sh:46) and no rename to
 #     `<dirout>.bak` (make_p0_dfe_0430.py:284-295). Results are keyed by
 #     DFE_RUN; a non-empty run directory stops the stage unless FORCE=1.

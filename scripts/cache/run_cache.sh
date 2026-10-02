@@ -267,8 +267,13 @@ for i in "${!bases[@]}"; do
   fi
 done
 
+# A marker with absolute gamma bounds has no 2*s*Na for the check's range test to
+# compare against, so it is told nothing rather than the config default, which
+# would compare the absolute bound against an unrelated number.
+if [[ -n "${abs_lo}" ]]; then check_s_high=""; else check_s_high="${GAMMA_S_HIGH}"; fi
+
 # ---------------------------------------------------------------- checkpoint --
-# Diagnostic only: a bug in the check must never discard a ten-hour cache, so its
+# Diagnostic only: a bug in the check must never discard a finished cache, so its
 # failure warns and the stage's exit status is left alone.
 if [[ "${DRY_RUN:-0}" != "1" ]]; then
   if ! python3 "${REPO_DIR}/scripts/checks/check_cache.py" \
@@ -277,7 +282,7 @@ if [[ "${DRY_RUN:-0}" != "1" ]]; then
          --min-size-frac "${CACHE_MIN_SIZE_FRAC}" \
          --gamma-pts "${GAMMA_PTS}" --projection "${PROJECTION}" \
          --min-usable "${CACHE_MIN_USABLE_FRAC}" \
-         --gamma-s-high "${GAMMA_S_HIGH}" "$@"; then
+         --gamma-s-high "${check_s_high}" "$@"; then
     echo "WARNING: check_cache.py failed; the cache above is unaffected." >&2
     echo "         Inspect the .bpkl by hand before trusting this run." >&2
   fi

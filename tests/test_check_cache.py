@@ -56,8 +56,19 @@ def test_many_failed_spectra_fails():
 
 def test_narrow_gamma_range_warns():
     """Upper bound well short of 2*0.5*Na leaves strong selection unexplorable."""
-    status, reasons = assess_cache(2_000_000, 1.0, 0.01, 50.0, 10000, 600000, 0.9)
+    status, reasons = assess_cache(2_000_000, 1.0, 0.01, 50.0, 10000, 600000, 0.9,
+                                   s_high=0.5)
     assert status == "WARN" and any("range" in r for r in reasons)
+
+
+def test_an_absolute_bound_marker_skips_the_range_test():
+    """markers `meixi` and `large` give gamma bounds outright, so there is no
+    2*s*Na to compare against. Passing GAMMA_S_HIGH's config default here
+    compared an absolute bound against an unrelated number."""
+    narrow = dict(nbytes=2_000_000, usable_frac=1.0, gamma_lo=0.01, gamma_hi=50.0,
+                  na=10000, min_bytes=600000, min_usable=0.9)
+    assert assess_cache(**narrow, s_high=0.5)[0] == "WARN"
+    assert assess_cache(**narrow, s_high=None)[0] == "PASS"
 
 
 def test_good_cache_passes():
@@ -86,9 +97,10 @@ def test_the_range_warning_uses_the_configured_s_high():
 def test_range_warning_boundary_is_the_tolerance():
     """RANGE_TOLERANCE of 2*s_high*Na is the cutoff, not an epsilon either side."""
     target = 2 * 0.5 * 10000 * RANGE_TOLERANCE
-    assert assess_cache(2_000_000, 1.0, 0.02, target, 10000, 600000, 0.9)[0] == "PASS"
+    assert assess_cache(2_000_000, 1.0, 0.02, target, 10000, 600000, 0.9,
+                        s_high=0.5)[0] == "PASS"
     assert assess_cache(2_000_000, 1.0, 0.02, target * 0.99, 10000, 600000,
-                        0.9)[0] == "WARN"
+                        0.9, s_high=0.5)[0] == "WARN"
 
 
 def test_an_unknown_na_does_not_warn_about_the_range():
