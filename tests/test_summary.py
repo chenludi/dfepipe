@@ -119,6 +119,28 @@ def test_u_l_and_ul_come_from_the_genome_wide_row(tmp_path):
     assert float(row["ul"]) == pytest.approx(float(row["u"]) * float(row["l"]))
 
 
+def test_the_File_column_is_present_for_plot_ul_horizontalbar(tmp_path):
+    """plot_ul_horizontalbar.py:25-26 raises unless the table has `File` and `l`,
+    and uses File as the bar label. summary_getul.py:61 wrote it; an earlier
+    version of this script dropped it, which broke that figure outright."""
+    out = build_tree(tmp_path)
+    run_summary(tmp_path, out)
+    header, rows = read_table(out)
+    row = dict(zip(header, rows[0]))
+    assert "File" in header and "l" in header
+    assert row["File"].startswith("fsmut.has_qui.")
+    assert row["File"].endswith(".tab")
+
+
+def test_the_two_pandas_index_columns_stay_out(tmp_path):
+    """`Unnamed: 11`/`Unnamed: 28` in the published table are artifacts of an
+    unnamed index, and record_251012_simu_biascorrect.py:175 drops them again."""
+    out = build_tree(tmp_path)
+    run_summary(tmp_path, out)
+    header, _ = read_table(out)
+    assert not [c for c in header if c.startswith("Unnamed")]
+
+
 def test_each_pdf_gets_its_own_prefixed_columns(tmp_path):
     """The original repeats bare `shape`/`scale` per pdf, which cannot be read."""
     out = build_tree(tmp_path)

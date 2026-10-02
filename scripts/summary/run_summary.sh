@@ -226,7 +226,13 @@ for pdf in fit_pdfs:
     columns.append("ll_%s" % pdf)
     columns += ["%s_%s" % (pdf, p) for p in PDF_PARAMS[pdf]]
     columns += ["%s_%s%s" % (pdf, BIN_PREFIX, b) for b in BIN_LABELS]
-columns += ["u", "l", "l_inputbed", "ul"]
+# `File` is the fsmut table's basename, as summary_getul.py:61 wrote it. It is
+# kept because plot_ul_horizontalbar.py:25-26 refuses a table without it and uses
+# it as the bar label. The published table's other two extra columns are left out:
+# `pdf` has no consumer (the pdf is in every column prefix here), and
+# `Unnamed: 11`/`Unnamed: 28` are pandas index artifacts that
+# record_251012_simu_biascorrect.py:175 drops again anyway.
+columns += ["File", "u", "l", "l_inputbed", "ul"]
 
 rows = []
 for bed in beds:
@@ -268,10 +274,12 @@ for bed in beds:
     if ul is None:
         sys.stderr.write("summary: %s: no usable fsmut table at %s\n"
                          % (base, fsmut))
-        row.update({"u": None, "l": None, "l_inputbed": None, "ul": None})
+        row.update({"File": os.path.basename(fsmut), "u": None, "l": None,
+                    "l_inputbed": None, "ul": None})
     else:
         u, l, l_inputbed = ul
-        row.update({"u": u, "l": l, "l_inputbed": l_inputbed, "ul": u * l})
+        row.update({"File": os.path.basename(fsmut), "u": u, "l": l,
+                    "l_inputbed": l_inputbed, "ul": u * l})
 
     rows.append(row)
 
@@ -279,7 +287,7 @@ for bed in beds:
 # Absorbing it silently would make the header vary again, so stop instead.
 for r in rows:
     for key in r:
-        if key not in columns and key not in ("outputbase", "ll_neu",
+        if key not in columns and key not in ("outputbase", "ll_neu", "File",
                                               "u", "l", "l_inputbed", "ul"):
             die("%s is not a known column. If run_bestdfe.sh now writes it, add "
                 "it to PDF_PARAMS in this script." % key)
