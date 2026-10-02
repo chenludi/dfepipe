@@ -9,7 +9,9 @@ checking was skipped. WARN does not block. A FAIL means the data is broken - a c
 missing in error, too few SNPs, a cache with too few usable spectra, a model
 giving no probability where variants are observed - and carrying that into a
 ten-hour job wastes a day, so the gate exits non-zero and the chain stops.
-Set FORCE=1 to proceed anyway; the override is logged.
+Set SKIP_GATE=1 to proceed anyway; the override is logged. FORCE=1 also works,
+for compatibility, but it means six other things in the stage scripts and is
+forwarded to every later job, so it rewrites finished work from here on.
 
 A WARN is advisory and never blocks. Some of those thresholds are measured and
 some are judgements; each one says which in config/pipeline.conf.
@@ -36,6 +38,24 @@ REFERENCE_ONLY = ("         for reference only: these flag runs worth a second "
                   "look, not an accept/reject test")
 
 
+def _override():
+    """SKIP_GATE=1 bypasses this gate and nothing else.
+
+    FORCE=1 also works, because it always did and the docs said so - but FORCE
+    means six other things in the stage scripts (overwrite a finished directory,
+    redo every fit, rebuild a cache, re-attempt points logged `timeout`, submit a
+    bed that already has a cache, overwrite a table), and it is forwarded to every
+    job in every later phase. So using it to get past one gate also rewrites work
+    from that stage onward. SKIP_GATE is the narrow one, and the messages below
+    recommend it.
+    """
+    if os.environ.get("SKIP_GATE") == "1":
+        return "SKIP_GATE=1"
+    if os.environ.get("FORCE") == "1":
+        return "FORCE=1"
+    return None
+
+
 def main(argv):
     if len(argv) != 3:
         sys.stderr.write(USAGE + "\n")
@@ -54,9 +74,10 @@ def main(argv):
                          "(%s)\n" % (stage, path))
         sys.stderr.write("         Its check did not run, so nothing verified "
                          "that stage. Re-run it and read the check output, or "
-                         "set FORCE=1 to continue unverified.\n")
-        if os.environ.get("FORCE") == "1":
-            sys.stderr.write("         FORCE=1: continuing unverified\n")
+                         "set SKIP_GATE=1 to continue unverified.\n")
+        ov = _override()
+        if ov:
+            sys.stderr.write("         %s: continuing unverified\n" % ov)
             return 0
         return 1
 
@@ -83,11 +104,15 @@ def main(argv):
         sys.stderr.write(REFERENCE_ONLY + "\n")
 
     if failed:
-        if os.environ.get("FORCE") == "1":
-            sys.stderr.write("         FORCE=1: continuing despite the failure(s) above\n")
+        ov = _override()
+        if ov:
+            sys.stderr.write("         %s: continuing despite the failure(s) "
+                             "above\n" % ov)
             return 0
-        sys.stderr.write("         stopping. Fix the problem, or set FORCE=1 to continue "
-                         "anyway.\n")
+        sys.stderr.write("         stopping. Fix the problem, or set SKIP_GATE=1 "
+                         "to continue anyway. FORCE=1 also works but means six "
+                         "other things in the stage scripts, so it would rewrite "
+                         "finished work from here on.\n")
         return 1
     return 0
 

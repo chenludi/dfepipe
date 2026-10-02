@@ -97,6 +97,7 @@ job_env="${job_env},CACHE_BEDS=${beds[*]}"
 [[ -n "${GATE_STAGE:-}" ]] && job_env="${job_env},GATE_STAGE=${GATE_STAGE}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 
+[[ -n "${SKIP_GATE:-}" ]] && job_env="${job_env},SKIP_GATE=${SKIP_GATE}"
 # Estimate, then request 3x it (a killed cache leaves nothing to resume from,
 # but 6x an extrapolated estimate exceeds the queue limits for big markers).
 max_grid="$(printf '%s\n' ${GRIDS} | sort -n | tail -1)"

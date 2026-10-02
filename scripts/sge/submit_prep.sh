@@ -53,6 +53,7 @@ job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},PREP_RUN=${PREP_RUN}"
 [[ -n "${GATE_STAGE:-}" ]] && job_env="${job_env},GATE_STAGE=${GATE_STAGE}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 
+[[ -n "${SKIP_GATE:-}" ]] && job_env="${job_env},SKIP_GATE=${SKIP_GATE}"
 qsub ${TERSE:+-terse} \
   -N "dfe_prep_${PREP_RUN}" \
   -cwd -j y -V \

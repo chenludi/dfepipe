@@ -92,6 +92,7 @@ job_env="${job_env},DEMO_P0_FILES=${p0files[*]}"
 [[ -n "${GATE_STAGE:-}" ]] && job_env="${job_env},GATE_STAGE=${GATE_STAGE}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 
+[[ -n "${SKIP_GATE:-}" ]] && job_env="${job_env},SKIP_GATE=${SKIP_GATE}"
 qsub ${TERSE:+-terse} \
   -N "dfe_demo_${DEMO_RUN}" \
   -t "1-${#p0files[@]}" \

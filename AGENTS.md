@@ -280,10 +280,14 @@ The new `SUMMARY_RUN` is **required**, not tidiness: `run_summary.sh` and
 does not honour `RESUME`. Harmless — the neutral likelihood is already there and
 the summary reads it from that directory.
 
-**`FORCE=1` means three different things** — bypass an upstream gate, redo every
-DFE fit, overwrite a finished table. So `FORCE=1 RESUME=1` *discards* the fits
-`RESUME` was meant to keep. To get past a gate only, run that stage by hand: a
-hand-run stage consults no gate.
+**To get past a gate, use `SKIP_GATE=1`, not `FORCE=1`.** `SKIP_GATE` does
+nothing else. `FORCE=1` means six other things — overwrite a finished directory,
+redo every fit, rebuild a cache, re-attempt points logged `timeout`, submit a bed
+that already has a cache, overwrite a table — and the chain forwards it to every
+job in every later phase, so using it to clear one gate rewrites finished work
+from that stage onward. `FORCE=1 RESUME=1` in particular *discards* the fits
+`RESUME` was meant to keep. `FORCE=1` still clears a gate, for compatibility, and
+the log names whichever override was used.
 
 **A gate stopped a job.** The message names the upstream stage and its check
 file. Read the file before overriding anything.
@@ -298,8 +302,10 @@ nearly invisible.
 ## 7. Do not
 
 - **Invent a config value.** Ask, or use the default and say which you used.
-- **Use `FORCE=1` to get past a gate without telling the user what the gate
-  said.** It is in the output; quote it.
+- **Use `FORCE=1` to get past a gate.** `SKIP_GATE=1` is the narrow override;
+  `FORCE=1` also rewrites finished work from that stage onward. And never
+  override without telling the user what the gate said — it is in the output;
+  quote it.
 - **Change `GRIDS`, `DFE_BINS`, `CTRL_FLANK`, `PROJECTION` or the optimiser
   bounds silently.** They change results. Say what you changed and why.
 - **Submit without `DRY_RUN=1` first**, or without checking the cluster copy is

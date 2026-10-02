@@ -149,6 +149,7 @@ step() {
   env="${env},DFE_RUN=${DFE_RUN},SUMMARY_RUN=${SUMMARY_RUN}"
   [[ -n "$gates" ]] && env="${env},GATE_FILES=${gates},GATE_STAGE=${gstage}"
   [[ -n "${FORCE:-}" ]] && env="${env},FORCE=${FORCE}"
+  [[ -n "${SKIP_GATE:-}" ]] && env="${env},SKIP_GATE=${SKIP_GATE}"
   [[ -n "${RESUME:-}" ]] && env="${env},RESUME=${RESUME}"
   [[ -n "${DFE_CACHE_FILE:-}" ]] && env="${env},DFE_CACHE_FILE=${DFE_CACHE_FILE}"
 
@@ -203,6 +204,7 @@ launch_next() {
   env="${env},PDFS=${PDFS},PACKNUMBER=${PACKNUMBER},DFE_TIMEOUT=${DFE_TIMEOUT}"
   env="${env},SGE_DFE_RT=${SGE_DFE_RT}"
   [[ -n "${FORCE:-}" ]] && env="${env},FORCE=${FORCE}"
+  [[ -n "${SKIP_GATE:-}" ]] && env="${env},SKIP_GATE=${SKIP_GATE}"
   [[ -n "${RESUME:-}" ]] && env="${env},RESUME=${RESUME}"
   [[ -n "${DFE_CACHE_FILE:-}" ]] && env="${env},DFE_CACHE_FILE=${DFE_CACHE_FILE}"
 

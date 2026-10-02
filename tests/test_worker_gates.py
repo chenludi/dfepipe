@@ -91,3 +91,67 @@ def test_the_gate_passes_a_clean_check_file(tmp_path):
     r = subprocess.run(["bash", str(script)], capture_output=True, text=True, env=env)
     assert "WORK_RAN" in r.stdout, r.stderr
     assert r.returncode == 0
+
+
+# -------------------------------------------- the gate has its own narrow override --
+
+GATE_PY = ROOT / "scripts" / "checks" / "gate.py"
+
+
+def _gate(tmp_path, kind, **env):
+    import os
+    if kind == "missing":
+        target = tmp_path / "absent.tsv"
+    else:
+        target = tmp_path / "f.tsv"
+        target.write_text("item\tstatus\treason\nb\tFAIL\tbroken\n")
+    e = dict(os.environ)
+    e.pop("FORCE", None)
+    e.pop("SKIP_GATE", None)
+    e.update(env)
+    import sys as _sys
+    return subprocess.run([_sys.executable, str(GATE_PY), str(target), "cache"],
+                          capture_output=True, text=True, env=e)
+
+
+@pytest.mark.parametrize("kind", ["missing", "fail"])
+def test_the_gate_blocks_with_no_override(tmp_path, kind):
+    assert _gate(tmp_path, kind).returncode == 1
+
+
+@pytest.mark.parametrize("kind", ["missing", "fail"])
+def test_SKIP_GATE_bypasses_only_the_gate(tmp_path, kind):
+    """FORCE=1 was the documented way past a gate, but it also means overwrite a
+    finished directory, redo every fit, rebuild a cache, re-attempt points logged
+    timeout, submit an already-cached bed and overwrite a table - and it is
+    forwarded to every later job. So the gate's own advice rewrote finished work.
+    SKIP_GATE does nothing but this."""
+    r = _gate(tmp_path, kind, SKIP_GATE="1")
+    assert r.returncode == 0
+    assert "SKIP_GATE=1" in r.stderr
+
+
+@pytest.mark.parametrize("kind", ["missing", "fail"])
+def test_FORCE_still_works_and_says_which_override_was_used(tmp_path, kind):
+    """It was documented, so it keeps working; the log must name which one."""
+    r = _gate(tmp_path, kind, FORCE="1")
+    assert r.returncode == 0
+    assert "FORCE=1" in r.stderr
+
+
+def test_the_gate_recommends_the_narrow_override(tmp_path):
+    r = _gate(tmp_path, "fail")
+    assert "SKIP_GATE=1" in r.stderr
+    wrapper = (SGE / "gate_upstream.sh").read_text()
+    assert "SKIP_GATE=1" in wrapper
+    assert "Not FORCE=1" in wrapper
+
+
+def test_SKIP_GATE_is_forwarded_wherever_FORCE_is():
+    """An override that the chain drops on the way to the job is no override."""
+    missing = []
+    for p in [ROOT / "scripts" / "chains" / "run_all.sh"] + sorted(SGE.glob("submit_*.sh")):
+        text = p.read_text()
+        if "FORCE=${FORCE}" in text and "SKIP_GATE=${SKIP_GATE}" not in text:
+            missing.append(p.name)
+    assert missing == [], "forward SKIP_GATE in: %s" % missing

@@ -34,7 +34,10 @@ dfepipe_gate_upstream() {
 dfepipe_gate_or_exit() {
   if ! dfepipe_gate_upstream; then
     echo "${1:-worker}: the upstream gate stopped this task; nothing was run." >&2
-    echo "      Fix the stage it names, or set FORCE=1 to carry on regardless." >&2
+    echo "      Fix the stage it names, or set SKIP_GATE=1 to carry on." >&2
+    echo "      Not FORCE=1: that also means overwrite a finished directory, redo" >&2
+    echo "      every fit, rebuild a cache and overwrite a table, and it is" >&2
+    echo "      forwarded to every later job, so it rewrites work from here on." >&2
     exit 1
   fi
 }

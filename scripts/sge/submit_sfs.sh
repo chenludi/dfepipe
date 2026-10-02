@@ -70,6 +70,7 @@ job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},FS_RUN=${FS_RUN},PREP_RUN=${PREP_RUN},C
 [[ -n "${GATE_STAGE:-}" ]] && job_env="${job_env},GATE_STAGE=${GATE_STAGE}"
 [[ -n "${FORCE:-}" ]] && job_env="${job_env},FORCE=${FORCE}"
 
+[[ -n "${SKIP_GATE:-}" ]] && job_env="${job_env},SKIP_GATE=${SKIP_GATE}"
 qsub ${TERSE:+-terse} \
   -N "dfe_sfs_${FS_RUN}" \
   -t "1-${n_chroms}" \
