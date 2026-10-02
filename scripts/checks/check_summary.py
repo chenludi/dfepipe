@@ -164,6 +164,10 @@ def main(argv=None):
 
     rows = rows_for(a.out, a.run, a.beds, a.pdfs.split(), a.ctrl_tag,
                     bin_sum_tol=a.bin_sum_tol)
+    # The other checks create their stage root too. Without it a missing
+    # directory raises FileNotFoundError, no check file is written, and the
+    # next stage's gate then blocks on a file that nothing will ever create.
+    os.makedirs(a.out, exist_ok=True)
     path = os.path.join(a.out, CHECK_TEMPLATE % a.run)
     write_check(path, rows)
     print("wrote %s" % path)

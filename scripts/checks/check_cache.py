@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Checkpoint for the cache stage: is the spectra cache usable?
 
-FOR REFERENCE ONLY, as everywhere in this pipeline: a WARN means "unusual
-compared with previous runs", not "wrong". The cache itself remains the arbiter.
+For reference only, as everywhere in this pipeline: a WARN means "this cache is
+worth looking at", not "wrong", and the cache itself remains the arbiter. The only
+WARN here is the gamma-range remark, which has no calibration set behind it.
 
 FAIL is reserved for a cache the DFE stage cannot work with, and does block a
 chain (FORCE=1 overrides):
@@ -48,9 +49,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from checkfile import write_check  # noqa: E402
 from conf import conf  # noqa: E402
 
-# The covered upper bound may fall no more than this fraction short of
-# 2*GAMMA_S_HIGH*Na before it is worth remarking on. A factor of ten: the gammas
-# are log-spaced, so anything tighter would fire on rounding.
+# The remark fires when the covered upper bound is below this FRACTION OF
+# 2*GAMMA_S_HIGH*Na - that is, below a tenth of it, not within a tenth of it. The
+# gammas are log-spaced, so a tighter test would fire on rounding; the price is
+# that a cache covering only half the requested range passes quietly. An earlier
+# wording here said "may fall no more than this fraction short", which describes a
+# 90% floor and is not what the comparison does.
 RANGE_TOLERANCE = 0.1
 
 # Pickling the float64 array costs about 40% on top of it. Measured on three real

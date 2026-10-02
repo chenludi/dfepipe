@@ -36,6 +36,7 @@ FOR REFERENCE ONLY applies to the WARN, as everywhere in this pipeline: it means
 "this is worth a look", not "wrong", and it does not block.
 """
 import argparse
+import math
 import csv
 import glob
 import os
@@ -49,7 +50,9 @@ from conf import conf  # noqa: E402
 from check_prep import OUTPUT_TEMPLATE as PREP_BED_TEMPLATE  # noqa: E402
 
 # The manuscript's runs kept at least 90% of test sites after control pairing.
-MIN_HASQUI_FRAC = conf.get_float("HASQUI_MIN_FRAC", 0.90)
+# The fallback matches config/pipeline.conf's value, so a hand-run check and a
+# pipeline-run check agree. It read 0.90 after the configured value moved to 0.75.
+MIN_HASQUI_FRAC = conf.get_float("HASQUI_MIN_FRAC", 0.75)
 # Smallest published bin (PLS phastCons17 20-25) has 1,560 SNPs. Mirrors
 MIN_SNPS = conf.get_int("MIN_SNPS", 500)
 
@@ -100,6 +103,12 @@ def assess_summary(n_snps, hasqui_ratio, failed_chroms,
     if n_snps is None:
         status = "FAIL"
         reasons.append("no SFS could be read, so the SNP count is unknown")
+    elif not math.isfinite(n_snps):
+        # A NaN count passed `n_snps < min_snps`, which is False for NaN, so a
+        # spectrum holding a NaN read as PASS with n_snps=nan in the row.
+        status = "FAIL"
+        reasons.append("the SNP count is %g, so the spectrum holds a "
+                       "non-numeric entry" % n_snps)
     elif n_snps < min_snps:
         status = "FAIL"
         reasons.append("only %.0f SNPs (minimum %d): too thin to fit"

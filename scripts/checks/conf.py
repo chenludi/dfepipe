@@ -7,7 +7,11 @@ hand. It reads pipeline.conf rather than repeating the numbers, so a threshold
 exists in exactly one place.
 
     from conf import conf
-    conf.get_float("HASQUI_MIN_FRAC", 0.90)
+    conf.get_float("HASQUI_MIN_FRAC", 0.75)
+
+The fallback should match the configured value. If the two drift, a check run by
+hand and the same check run by its stage use different numbers, which is the one
+thing this module exists to prevent; tests/test_naming_honesty.py enforces it.
 
 Only `KEY="${KEY:-value}"` lines are read; anything else in the file is
 ignored. If the file cannot be read, the fallback passed at the call site is

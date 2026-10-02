@@ -17,12 +17,17 @@ set -euo pipefail
 : "${REPO_DIR:?REPO_DIR must be exported by the launcher (submit_dfe.sh)}"
 : "${DFE_PDF:?DFE_PDF must be exported by the launcher (submit_dfe.sh)}"
 
-if [[ "$DFE_PDF" == "neu" ]]; then
-  # shellcheck source=gate_upstream.sh
+# The gate runs before any branch below, like every other worker. It used to sit
+# inside the `neu` branch, which run_all.sh:293 never takes - so the dfe array was
+# the one stage in the pipeline with no gate at all, and a missing or failing
+# check_cache.tsv let every fit run while fitneu and bestdfe refused. That is what
+# happened on 2026-10-01: 347 fits completed against a cache nothing had verified.
+# shellcheck source=gate_upstream.sh
 source "${REPO_DIR}/scripts/sge/gate_upstream.sh"
 dfepipe_gate_or_exit "worker_dfe"
 
-echo "worker_dfe: host=$(hostname) job=${JOB_ID:-none} pdf=neu started $(date)"
+if [[ "$DFE_PDF" == "neu" ]]; then
+  echo "worker_dfe: host=$(hostname) job=${JOB_ID:-none} pdf=neu started $(date)"
   bash "${REPO_DIR}/scripts/dfe/run_fitneu.sh" "$@"
   echo "worker_dfe: pdf=neu finished $(date)"
   exit 0

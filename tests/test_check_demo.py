@@ -219,3 +219,13 @@ def test_read_fs_without_a_mask_row(tmp_path):
 
 def test_read_fs_missing_file_is_none(tmp_path):
     assert read_fs(tmp_path / "absent.fs") is None
+
+
+def test_a_non_finite_Na_fails():
+    """A NaN or inf Na passed the old `na <= 0` test, and the cache stage derives
+    every 2*s*Na gamma bound from it, so the cache would be built over a NaN
+    range with no warning."""
+    for na in (float("nan"), float("inf"), float("-inf")):
+        status, reasons = assess_demo(metrics(), [-1000.0], CFG, na=na, n_fits=20)
+        assert status == "FAIL", na
+        assert any("finite" in r for r in reasons), reasons

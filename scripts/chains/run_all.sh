@@ -217,7 +217,7 @@ launch_next() {
     -o "${log_dir}/launch_${nextfrom}.\$JOB_ID.log" \
     -l h_rt="00:30:00",h_data="4G" \
     -pe shared 1 \
-    -hold_jid "${hold}" \
+    ${hold:+-hold_jid "${hold}"} \
     -v "$env" \
     "${REPO_DIR}/scripts/chains/run_all.sh" "${beds[@]}" | tail -1
 }

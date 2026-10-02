@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Checkpoint for the dfe stage: does the fitted DFE describe the test SFS?
 
-FOR REFERENCE ONLY, as everywhere in this pipeline: a WARN means "unusual
-compared with 137 previous fits", not "wrong". The figure remains the arbiter.
+For reference only, as everywhere in this pipeline: a WARN means "this fit is
+worth looking at", not "wrong", and the figure remains the arbiter. The residual
+thresholds were set from 137 gamma and neugamma fits, so they apply to those two
+pdfs. They do not apply to the `neu` row: no neutral null was in that set, and a
+large residual there is the expected result for sites under selection.
 
 FAIL is reserved for structural problems, which do block a chain:
     no fits at all                     no *.InferDFE.bestfits in the run

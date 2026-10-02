@@ -152,7 +152,11 @@ for bed in "${beds[@]}"; do
   found=0
   while IFS= read -r p; do
     task_beds+=("$bed"); task_packs+=("$(basename "$p")"); found=1
-    n_points=$(( n_points + $(grep -cv '^[[:space:]]*\(#\|$\)' "$p") ))
+    # `|| true`: grep -c exits 1 when it counts zero lines, and under `set -e`
+    # that aborted this script with no message at all - the "no command packs"
+    # branch below was never reached. A pack with no fit lines is possible when a
+    # previous generation was killed between creating the file and appending.
+    n_points=$(( n_points + $(grep -cv '^[[:space:]]*\(#\|$\)' "$p" || true) ))
   done < <(LC_ALL=C ls -1 "${d}"/dadi-cli_dfe.*.sh 2>/dev/null)
   if [[ "$found" -eq 0 ]]; then
     echo "submit_dfe: no command packs were generated for '${base}' in ${d}" >&2

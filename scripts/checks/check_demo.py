@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Checkpoint for the demo stage: does the demographic model fit the control SFS?
 
-FOR REFERENCE ONLY, as everywhere in this pipeline: a WARN means "unusual
-compared with 137 previous fits", not "wrong". The figure remains the arbiter.
+For reference only, as everywhere in this pipeline: a WARN means "this fit is
+worth looking at", not "wrong", and the figure remains the arbiter. The residual
+thresholds come from 137 gamma and neugamma DFE fits, which do not include a
+demographic fit to a control spectrum, so here they are a rough guide rather than
+a calibrated range.
 
 FAIL is reserved for structural problems, which do block a chain:
     no fits at all                     nothing was inferred
@@ -25,6 +28,7 @@ best-fit model spectrum beside the fits as `bestfit_model.fs`, and this script
 compares it with the control spectrum through scripts/checks/residuals.py.
 """
 import argparse
+import math
 import glob
 import os
 import sys
@@ -74,10 +78,14 @@ def assess_demo(metrics, top_lls, cfg, na=None, n_fits=None,
             "%s is missing or unparseable: the later stages grep it for "
             "'max_ll_key:' and 'Na:', so nothing downstream can run. Re-run "
             "scripts/demo/run_bestdemo.sh" % BEST_INFERENCE_NAME)
-    elif na <= 0:
+    elif not math.isfinite(na) or na <= 0:
+        # isfinite as well as > 0: a NaN or inf Na passed the old `na <= 0` test,
+        # and every 2*s*Na gamma bound in the cache stage is derived from it, so
+        # the cache would have been built over a NaN range without a word.
         fails.append(
-            "Na is %g, not positive: theta or the control mutation count is "
-            "wrong, so every 2*s*Na gamma bound downstream would be too" % na)
+            "Na is %g, not a positive finite number: theta or the control "
+            "mutation count is wrong, so every 2*s*Na gamma bound downstream "
+            "would be too" % na)
     if metrics is None:
         fails.append(
             "the model and data spectra could not be read, so the fit was not "

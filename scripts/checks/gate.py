@@ -11,8 +11,8 @@ giving no probability where variants are observed - and carrying that into a
 ten-hour job wastes a day, so the gate exits non-zero and the chain stops.
 Set FORCE=1 to proceed anyway; the override is logged.
 
-A WARN is advisory and never blocks: those thresholds are percentiles of past
-runs, so they mean "unusual", not "wrong".
+A WARN is advisory and never blocks. Some of those thresholds are measured and
+some are judgements; each one says which in config/pipeline.conf.
 
 Running a stage on its own does not consult a gate at all, so re-running one
 stage against older output - a normal workflow here - is unaffected.

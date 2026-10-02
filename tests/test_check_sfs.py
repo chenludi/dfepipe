@@ -386,3 +386,11 @@ def test_one_control_key_gets_past_the_check():
         r = _run_sfs(**{key: "/tmp/does-not-exist"})
         assert r.returncode == 1, (key, r.returncode, r.stderr)
         assert "both set" not in r.stderr and "are not set" not in r.stderr
+
+
+def test_a_non_finite_snp_count_fails():
+    """`nan < min_snps` is False, so a spectrum holding a NaN read as PASS."""
+    status, reasons = assess_summary(n_snps=float("nan"), hasqui_ratio=0.99,
+                                     failed_chroms=[])
+    assert status == "FAIL"
+    assert any("non-numeric" in r for r in reasons), reasons

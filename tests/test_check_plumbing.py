@@ -58,6 +58,21 @@ def test_check_main_survives_an_empty_run(tmp_path, name):
 
 
 @pytest.mark.parametrize("name", sorted(CHECKS))
+def test_a_missing_out_directory_does_not_crash(tmp_path, name):
+    """The stage root may not exist yet. check_prep and check_summary used to
+    raise FileNotFoundError here, which wrote no check file - and gate.py blocks
+    on a missing check file, so the next stage stopped on a directory that
+    nothing would ever create. The other five already created it."""
+    out = tmp_path / "not_created_yet"
+    mod = importlib.import_module(name)
+    argv = [a.format(out=str(out)) for a in CHECKS[name]]
+    rc = mod.main(argv)
+    assert isinstance(rc, int)
+    written = list(out.rglob("check_*.tsv")) if out.exists() else []
+    assert written, "%s wrote no check file into a fresh directory" % name
+
+
+@pytest.mark.parametrize("name", sorted(CHECKS))
 def test_check_writes_a_readable_check_file(tmp_path, name):
     """The file is the stage's record, so it must exist and parse, with every
     status drawn from the shared vocabulary."""

@@ -117,6 +117,10 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     rows = [row_for(a.out, a.run, bed, min_frac=a.min_frac) for bed in a.beds]
+    # The other checks create their stage root too. Without it a missing
+    # directory raises FileNotFoundError, no check file is written, and the
+    # next stage's gate then blocks on a file that nothing will ever create.
+    os.makedirs(a.out, exist_ok=True)
     dest = os.path.join(a.out, "check_prep.%s.tsv" % a.run)
     write_check(dest, rows)
     print("wrote %s" % dest)

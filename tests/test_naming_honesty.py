@@ -110,3 +110,44 @@ def test_no_message_leads_with_an_internal_variable_name():
         for r in reasons:
             first = r.split()[0].rstrip(":,")
             assert "_" not in first, "message opens with a variable name: %r" % r
+
+
+# ------------------------------------------- no check may overclaim its calibration --
+
+CHECK_FILES = sorted((ROOT / "scripts" / "checks").glob("*.py"))
+
+
+def test_the_check_files_were_found():
+    assert len(CHECK_FILES) >= 10, [p.name for p in CHECK_FILES]
+
+
+@pytest.mark.parametrize("path", CHECK_FILES, ids=lambda p: p.name)
+def test_no_check_claims_a_past_run_comparison(path):
+    """Four docstrings asserted that a WARN meant "unusual compared with past
+    runs". The calibration set is 137 gamma and neugamma DFE fits: it does not
+    cover the demographic fit, the cache, the neutral null, or any of the
+    judgement thresholds, so the claim was wrong in each of those files."""
+    text = path.read_text()
+    for phrase in ("unusual compared with", "beyond anything seen in past runs",
+                   "percentiles of past runs"):
+        assert phrase not in text, "%s: %r" % (path.name, phrase)
+
+
+def test_every_conf_fallback_matches_the_configured_value():
+    """conf.py promises a threshold "exists in exactly one place". A fallback that
+    disagrees with the config means a hand-run check and a pipeline-run check use
+    different numbers - HASQUI_MIN_FRAC fell back to 0.90 after the configured
+    value moved to 0.75."""
+    conf_text = (ROOT / "config" / "pipeline.conf").read_text()
+    mismatches = []
+    for path in CHECK_FILES:
+        for key, fallback in re.findall(
+                r'conf\.get(?:_float|_int)\("([A-Z0-9_]+)",\s*([0-9.eE+-]+)\)',
+                path.read_text()):
+            m = re.search(r'^%s="\$\{%s:-([^}]*)\}"' % (key, key), conf_text, re.M)
+            if not m:
+                continue
+            if float(fallback) != float(m.group(1)):
+                mismatches.append("%s: %s fallback %s but config has %s"
+                                  % (path.name, key, fallback, m.group(1)))
+    assert mismatches == [], "\n".join(mismatches)

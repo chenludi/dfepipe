@@ -244,6 +244,7 @@ if [[ -z "$pack_mode" ]]; then
 Differences are listed in run_dfe.sh's header.
 """
 import csv
+import glob
 import os
 import sys
 from itertools import product
@@ -329,6 +330,17 @@ if not pairs:
 # published command lines carry ('2.0', '100000000.0', '1e-10').
 lstr = " ".join(str(v) for v in lower)
 ustr = " ".join(str(v) for v in upper)
+
+# Remove any pack from a previous generation before writing this one. A pack is
+# named after the index of its first starting point, so changing PACKNUMBER moves
+# every boundary: the old dadi-cli_dfe.50.sh survived beside new packs at 18, 36,
+# 54 ... and submit_dfe.sh enumerates the directory, so two array tasks ran
+# overlapping starting points against the same --output-prefix and raced on the
+# same .InferDFE.bestfits. Both package-recommended routes change PACKNUMBER
+# (submit_dfe.sh suggests `FORCE=1 PACKNUMBER=N`, and DFE_TARGET_TASK_HOURS
+# recomputes it), so this was reachable by following the instructions.
+for _stale in glob.glob(os.path.join(dirout, "dadi-cli_dfe.*.sh")):
+    os.remove(_stale)
 
 packs, output = [], None
 for i, p0 in enumerate(pairs):
