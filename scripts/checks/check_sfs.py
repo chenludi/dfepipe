@@ -49,10 +49,9 @@ from conf import conf  # noqa: E402
 # prep's naming ever changes, this check must not keep looking for the old name.
 from check_prep import OUTPUT_TEMPLATE as PREP_BED_TEMPLATE  # noqa: E402
 
-# The manuscript's runs kept at least 90% of test sites after control pairing.
-# The fallback matches config/pipeline.conf's value, so a hand-run check and a
-# pipeline-run check agree. It read 0.90 after the configured value moved to 0.75.
-MIN_HASQUI_FRAC = conf.get_float("HASQUI_MIN_FRAC", 0.75)
+# Warn below this, never fail. The fallback matches config/pipeline.conf, so a
+# hand-run check and a pipeline-run check agree.
+MIN_HASQUI_FRAC = conf.get_float("HASQUI_MIN_FRAC", 0.90)
 # Smallest published bin (PLS phastCons17 20-25) has 1,560 SNPs. Mirrors
 MIN_SNPS = conf.get_int("MIN_SNPS", 500)
 
@@ -113,18 +112,17 @@ def assess_summary(n_snps, hasqui_ratio, failed_chroms,
         status = "FAIL"
         reasons.append("only %.0f SNPs (minimum %d): too thin to fit"
                        % (n_snps, min_snps))
+    # A warning, never a FAIL: a low ratio is a design question about the window
+    # and the candidate set, and eight published beds sit under 0.90 (down to
+    # 0.790), so it is a condition to read rather than one to stop on. The cost is
+    # invisible otherwise - the sites without a control are dropped in silence, so
+    # `l` shrinks and the survivors are a biased subset.
     if hasqui_ratio is not None and hasqui_ratio < min_hasqui_frac:
-        # A warning, not a FAIL: a low ratio is a design question about the
-        # window and the candidate set, and eight published beds sit under 0.90
-        # (down to 0.790), so it is a condition to read and judge rather than one
-        # to stop on. It is worded at full length because what it costs is
-        # invisible otherwise - the sites without a control are dropped in
-        # silence, so `l` shrinks and the survivors are a biased subset.
         if status == "PASS":
             status = "WARN"
         reasons.append(
             "only %.1f%% of the prep'd test sequence has a nearby control "
-            "(below %.1f%%), so the rest was dropped silently and what remains "
+            "(under %.1f%%), so the rest was dropped silently and what remains "
             "is a biased subset: either the test regions are too long for a "
             "+/-CTRL_FLANK window centred on their midpoint, or there is too "
             "little candidate-neutral sequence near them. Read the reported l "

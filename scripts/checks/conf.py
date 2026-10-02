@@ -7,7 +7,7 @@ hand. It reads pipeline.conf rather than repeating the numbers, so a threshold
 exists in exactly one place.
 
     from conf import conf
-    conf.get_float("HASQUI_MIN_FRAC", 0.75)
+    conf.get_float("HASQUI_MIN_FRAC", 0.90)
 
 The fallback should match the configured value. If the two drift, a check run by
 hand and the same check run by its stage use different numbers, which is the one

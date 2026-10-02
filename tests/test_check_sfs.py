@@ -91,14 +91,17 @@ def test_exactly_min_snps_is_not_a_failure():
     assert assess_summary(n_snps=MIN_SNPS, hasqui_ratio=0.99, failed_chroms=[])[0] == "PASS"
 
 
-def test_the_worst_published_bed_is_not_blocked():
-    """The threshold was 0.90, which FAILed 8 of the 280 published beds -
-    top3stats_TxEnh 0.790, TxEnh 0.803, TxEx 0.827, Tx 0.871, TSS 0.879 - and so
-    would have blocked the Tx run this package was validated against.
-    proportion_hasquictrl.tsv, 5th percentile 0.913, minimum 0.790."""
+def test_the_worst_published_beds_warn_but_are_not_blocked():
+    """Eight of the 280 published beds sit under 0.90 - top3stats_TxEnh 0.790,
+    TxEnh 0.803, TxEx 0.827, Tx 0.871, TSS 0.879. They must warn, because the
+    dropped sites shrink l silently, and they must not block, because this one
+    used to FAIL and would have stopped the Tx run the package was validated
+    against. proportion_hasquictrl.tsv, 5th percentile 0.913, minimum 0.790."""
     for ratio in (0.790, 0.803, 0.827, 0.838, 0.871, 0.879):
-        assert assess_summary(n_snps=50000, hasqui_ratio=ratio,
-                              failed_chroms=[])[0] == "PASS", ratio
+        status, reasons = assess_summary(n_snps=50000, hasqui_ratio=ratio,
+                                         failed_chroms=[])
+        assert status == "WARN", ratio
+        assert any("nearby control" in r for r in reasons), ratio
 
 
 def test_low_hasqui_ratio_warns_without_blocking():
