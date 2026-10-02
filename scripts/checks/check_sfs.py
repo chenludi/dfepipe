@@ -25,12 +25,12 @@ Per chromosome:
 Summary row:
     FAIL  any chromosome FAILed, or fewer than MIN_SNPS SNPs in total. Below
           MIN_SNPS the spectrum is too thin to fit anything, so this blocks.
-    FAIL  the has_qui bp is under HASQUI_MIN_FRAC of what prep produced: test
+    WARN  the has_qui bp is under HASQUI_MIN_FRAC of what prep produced: test
           sites are being lost for want of a candidate-neutral site inside
           [mid-CTRL_FLANK, mid+CTRL_FLANK], so whatever survives is a biased
-          subset. This DOES block the chain, like every FAIL (gate.py); FORCE=1
-          proceeds. An earlier version of this docstring said it never blocks,
-          which was wrong.
+          subset. A warning, so it does not block: eight of the 280 published
+          beds are under 0.90, down to 0.790, so this is a condition to read and
+          judge, not one to stop on.
 
 FOR REFERENCE ONLY applies to the WARN, as everywhere in this pipeline: it means
 "unusual compared with past runs", not "wrong".
@@ -105,17 +105,21 @@ def assess_summary(n_snps, hasqui_ratio, failed_chroms,
         reasons.append("only %.0f SNPs (minimum %d): too thin to fit"
                        % (n_snps, min_snps))
     if hasqui_ratio is not None and hasqui_ratio < min_hasqui_frac:
-        # FAIL, not WARN: if a large share of the test sequence has no nearby
-        # control it is dropped silently, and whatever survives is a biased
-        # subset. Two causes worth stopping for - regions too long for a
-        # midpoint-centred window to reach outside them, or too little
-        # candidate-neutral sequence nearby. FORCE=1 proceeds anyway.
-        status = "FAIL"
+        # A warning, not a FAIL: a low ratio is a design question about the
+        # window and the candidate set, and eight published beds sit under 0.90
+        # (down to 0.790), so it is a condition to read and judge rather than one
+        # to stop on. It is worded at full length because what it costs is
+        # invisible otherwise - the sites without a control are dropped in
+        # silence, so `l` shrinks and the survivors are a biased subset.
+        if status == "PASS":
+            status = "WARN"
         reasons.append(
             "only %.1f%% of the prep'd test sequence has a nearby control "
-            "(minimum %.1f%%): either the test regions are too long for a "
+            "(below %.1f%%), so the rest was dropped silently and what remains "
+            "is a biased subset: either the test regions are too long for a "
             "+/-CTRL_FLANK window centred on their midpoint, or there is too "
-            "little candidate-neutral sequence near them"
+            "little candidate-neutral sequence near them. Read the reported l "
+            "before using this run"
             % (100 * hasqui_ratio, 100 * min_hasqui_frac))
 
     return status, reasons

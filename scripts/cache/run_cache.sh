@@ -54,7 +54,9 @@
 #   * a failed GenerateCache has its output removed, so a half-written pickle
 #     cannot be mistaken for a finished cache on the next run's skip check. A
 #     job killed outright (h_rt) can still leave one; check_cache.py catches it.
-#   * DRYRUN=1 prints and records the command without running it, for checking
+#   * DRY_RUN=1 prints and records the command without running it, for checking
+#     (run_all.sh reads the same name one level up, where it means 'submit
+#     nothing'; both mean 'do not do the expensive thing')
 #     what a submission would do before spending the ten hours.
 set -euo pipefail
 
@@ -169,7 +171,7 @@ for bed in "$@"; do
   cache_dirs+=("${OUT}/cache/${base}/${run_dir_name}")
 done
 
-[[ "${DRYRUN:-0}" == "1" ]] || activate_conda
+[[ "${DRY_RUN:-0}" == "1" ]] || activate_conda
 
 # ---------------------------------------------------------------- the caches --
 failed=0
@@ -248,8 +250,8 @@ for i in "${!bases[@]}"; do
   echo "run_cache: ${base}: Na=${na} gamma ${gamma_lo}..${gamma_hi}" \
        "gamma_pts=${gamma_pts} grids='${grids}'"
   printf '%s\n' "${cmd[*]}"
-  if [[ "${DRYRUN:-0}" == "1" ]]; then
-    echo "run_cache: DRYRUN=1, nothing was run; see ${d}/command_cache.sh"
+  if [[ "${DRY_RUN:-0}" == "1" ]]; then
+    echo "run_cache: DRY_RUN=1, nothing was run; see ${d}/command_cache.sh"
     continue
   fi
 
@@ -268,7 +270,7 @@ done
 # ---------------------------------------------------------------- checkpoint --
 # Diagnostic only: a bug in the check must never discard a ten-hour cache, so its
 # failure warns and the stage's exit status is left alone.
-if [[ "${DRYRUN:-0}" != "1" ]]; then
+if [[ "${DRY_RUN:-0}" != "1" ]]; then
   if ! python3 "${REPO_DIR}/scripts/checks/check_cache.py" \
          --out "${OUT}/cache" --run "${run_dir_name}" \
          --marker "${CACHE_MARKER}" \

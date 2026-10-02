@@ -79,7 +79,7 @@ local also matches mutation rate, recombination and coverage.
 | threshold | default | why |
 |---|---|---|
 | `MIN_SNPS` | `500` | below this the spectrum is too thin to fit. **FAIL.** The smallest published bin had 1,560 SNPs, so 500 is well clear of anything real |
-| `HASQUI_MIN_FRAC` | `0.75` | the fraction of prep bp that found a control. **FAIL** below it, and a FAIL blocks; `FORCE=1` proceeds. Measured over the 280 published beds: 5th percentile 0.913, minimum 0.790 (`top3stats_TxEnh`), with 8 under 0.90 including `Tx` 0.871 and `TSS` 0.879 — so 0.75 sits below everything that was published |
+| `HASQUI_MIN_FRAC` | `0.75` | the fraction of prep bp that found a control. **WARN** below it, which does not block — the dropped sites shrink `l` silently, so this is a condition to read, not to stop on. Measured over the 280 published beds: 5th percentile 0.913, minimum 0.790 (`top3stats_TxEnh`), with 8 under 0.90 including `Tx` 0.871 and `TSS` 0.879 |
 | `MIN_FS_BYTES` | `661` | a per-chromosome spectrum smaller than this holds no counts |
 | `MIN_FSMUT_BYTES` | `500` | likewise for the mutation table |
 

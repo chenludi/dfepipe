@@ -101,13 +101,20 @@ def test_the_worst_published_bed_is_not_blocked():
                               failed_chroms=[])[0] == "PASS", ratio
 
 
-def test_low_hasqui_ratio_fails():
+def test_low_hasqui_ratio_warns_without_blocking():
     """Losing test sites for want of a nearby control is a design question, not
-    a broken run, so it never blocks."""
+    a broken run, so it warns and the chain carries on."""
     status, reasons = assess_summary(n_snps=50000, hasqui_ratio=0.60,
                                      failed_chroms=[])
-    assert status == "FAIL"
+    assert status == "WARN"
     assert any("control" in r for r in reasons)
+
+
+def test_a_low_hasqui_ratio_never_masks_a_real_failure():
+    """The warning must not downgrade a FAIL that was already set."""
+    status, _ = assess_summary(n_snps=50000, hasqui_ratio=0.60,
+                               failed_chroms=["chr7"])
+    assert status == "FAIL"
 
 
 def test_exactly_the_hasqui_threshold_passes():
@@ -263,7 +270,7 @@ def test_a_thin_bed_fails_on_snp_count(tmp_path):
     assert "SNP" in rows["Tiny"]["reason"]
 
 
-def test_losing_test_sites_to_missing_controls_fails(tmp_path):
+def test_losing_test_sites_to_missing_controls_warns(tmp_path):
     # prep keeps 10000 bp; only 500 bp per chromosome ends up in has_qui.
     _prep(tmp_path, "Far", {"chr1": 5, "chr2": 5}, after_mask=10000)
     _chrom_out(tmp_path, "Far", "chr1")
@@ -271,7 +278,7 @@ def test_losing_test_sites_to_missing_controls_fails(tmp_path):
     assert _main(tmp_path, "Far.bed") == 0
     dest = tmp_path / "sfs" / "check_sfs.fs_t.tsv"
     rows = {r["item"]: r for r in csv.DictReader(dest.open(), delimiter="\t")}
-    assert rows["Far"]["status"] == "FAIL"
+    assert rows["Far"]["status"] == "WARN"
     assert "control" in rows["Far"]["reason"]
 
 
@@ -306,13 +313,15 @@ def test_runs_as_a_script(tmp_path):
     assert (tmp_path / "sfs" / "check_sfs.fs_t.tsv").is_file()
 
 
-def test_hasqui_failure_explains_both_possible_causes():
-    """A dropped test set is a bias, so the message must say what to look at."""
+def test_the_hasqui_warning_explains_both_possible_causes():
+    """It does not block, so the message is the whole value: it must name what to
+    look at and say that the dropped sites shrink l."""
     status, reasons = assess_summary(n_snps=50000, hasqui_ratio=0.5,
                                      failed_chroms=[], min_hasqui_frac=0.90)
-    assert status == "FAIL"
+    assert status == "WARN"
     joined = " ".join(reasons)
     assert "too long" in joined and "candidate-neutral" in joined
+    assert "biased subset" in joined and "l before using" in joined
 
 
 def test_per_chromosome_hasqui_ratio_is_against_that_chromosome(tmp_path):

@@ -33,7 +33,7 @@ def config_default(key):
 # Names that look like config keys but are something else.
 NOT_CONFIG = {
     "DRY_RUN", "FROM", "CHECK", "FORCE", "RESUME", "TERSE", "HOLD", "PNG",
-    "DFE_GENERATE_ONLY", "DRYRUN", "GATE_FILES", "GATE_STAGE", "JOB_ID",
+    "DFE_GENERATE_ONLY", "DRY_RUN", "GATE_FILES", "GATE_STAGE", "JOB_ID",
     "SGE_TASK_ID", "DFE_PACK", "DFE_TASK_DEADLINE", "PASS", "WARN", "FAIL",
     "SKIP", "AGENTS", "README", "PIPELINE", "MEMORY", "NA",
 }
