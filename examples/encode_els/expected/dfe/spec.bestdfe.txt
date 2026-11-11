@@ -1,0 +1,16 @@
+pdf=gamma
+Na=18364.008247474252
+mutation_test_diploid=4.729299438162294
+n_bestfits_files=152
+n_converged=66
+cutoff_rank=3
+likelihood_cutoff=-477.4792278817695
+n_kept=4
+best_file=129.InferDFE.bestfits
+best_ll=-477.47922788115284
+cachefile=/u/home/c/cdi/project-klohmuel/noncdoingdfe/test_0118/output_dfepipe/cache/GRCh38-ELS/demo_261025-1-cache_261025/cache_1.spectra.bpkl
+test_fs=/u/home/c/cdi/project-klohmuel/noncdoingdfe/test_0118/output_dfepipe/sfs/GRCh38-ELS/fs_261025/has_qui.exHET_noq.GRCh38-ELS_qui2.chrs_1t22.fs
+fsmut_test=/u/home/c/cdi/project-klohmuel/noncdoingdfe/test_0118/output_dfepipe/sfs/GRCh38-ELS/fs_261025/fsmut.has_qui.exHET_noq.GRCh38-ELS_qui2.chrs_1t22.tab
+dfe_bins=0.0 1e-05 0.0001 0.001 0.01 0.5 inf
+dfe_csv=dfe_exHET_noq.GRCh38-ELS_qui2.chrs_1t22_gamma.csv
+plot_top=10

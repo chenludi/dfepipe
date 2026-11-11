@@ -1,0 +1,13 @@
+dir_outdemog:/u/home/c/cdi/project-klohmuel/noncdoingdfe/test_0118/output_dfepipe/demo/GRCh38-ELS/fs_261025-three_epoch-demo_261025
+model:three_epoch
+likelyhood_cutoff:500.0
+mutfile:/u/home/c/cdi/project-klohmuel/noncdoingdfe/test_0118/output_dfepipe/sfs/GRCh38-ELS/fs_261025/fsmut.quiecent_ctrl.exHET_noq.GRCh38-ELS_qui2.chrs_1t22.tab
+mutation_ctrl_diploid:12.818648695682123
+max_ll_key:37
+ll:-517.0139615073276
+nuB:1.7256242494267395
+nuF:1000.0
+TB:0.7495047456939522
+TF:0.0056048427302586995
+theta:470803.5407379631
+Na:18364.008247474252

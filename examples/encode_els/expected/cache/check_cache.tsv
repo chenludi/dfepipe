@@ -1,0 +1,2 @@
+item	status	reason	cache_file	file_bytes	expected_bytes	min_bytes	n_gamma	n_usable	usable_frac	gamma_lo	gamma_hi	Na
+GRCh38-ELS	PASS	NA	/u/home/c/cdi/project-klohmuel/noncdoingdfe/test_0118/output_dfepipe/cache/GRCh38-ELS/demo_261025-1-cache_261025/cache_1.spectra.bpkl	559811	540960	270480	300	288	0.96	0.036728016499999995	18364.00824747429	18364.008247474252

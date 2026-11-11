@@ -1,5 +1,14 @@
 # The pipeline, stage by stage
 
+Two pictures go with this. `io_schematic.pdf` draws what each stage reads and
+writes, and how the run keys chain down the directory names;
+`pipeline_schematic.pdf` draws the same pipeline as jobs, one box per qsub. Both
+are generated - `plot_io_schematic.py` and `plot_pipeline_schematic.py` - so
+they can be rebuilt when a path or a stage changes.
+
+`examples/encode_els/` is one worked run of all of it, with the small output
+files to compare your own against.
+
 Per-stage reference: what each stage reads, what it writes, what its check means,
 and why each threshold is the number it is. `../AGENTS.md` is the front door and
 covers how to run the whole thing — read that first.

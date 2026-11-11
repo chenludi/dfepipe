@@ -348,6 +348,9 @@ nearly invisible.
 ```
 AGENTS.md              this file
 docs/PIPELINE.md       per-stage detail: inputs, outputs, what each check means
+docs/io_schematic.*    what each stage reads and writes, and where it lands
+docs/pipeline_schematic.*  the same pipeline as jobs: one box per qsub
+examples/              one worked run, with the small outputs to compare against
 config/pipeline.conf   every tunable, grouped by purpose, with defaults
 config/profiles/       site paths. template.conf to start a new one
 scripts/chains/        run_all.sh, the entry point
