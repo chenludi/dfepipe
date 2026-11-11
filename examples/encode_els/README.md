@@ -82,6 +82,25 @@ because the delta-50 rule chose gamma for this bed
 (`pdf_plotting_delta_50 = gamma`). Where the rule chooses a different pdf the two
 will not match, and the summary column is the one the manuscript figures use.
 
+## How long it took
+
+This bed ran as one of three in a single chain on 2026-10-25, 937,426 intervals
+and 255,869,536 bp:
+
+| stage | cost |
+|---|---|
+| sfs | about 14 min per task, 66 tasks for the three beds |
+| demo | about 1 h 44 for the three together |
+| cache | 20 min on 10 cores |
+| dfe | slowest single fit 7 m 53 s |
+| phase 1, prep through bestdemo | roughly 2 hours |
+
+Do not read these as a rule for your own bed. The cost depends on the sample
+size, on the sequence length and interval count, and most of all on how long
+optimisation takes to settle, which is a property of the likelihood surface
+rather than of the bed. `AGENTS.md` has the detail and says which runtimes size
+themselves and which do not.
+
 ## Reading the rest of `expected/`
 
 One check file per stage, each the stage's own verdict on itself:

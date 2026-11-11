@@ -225,6 +225,43 @@ normal and not a failure.
 `FROM=<stage>` starts part way — `prep sfs demo cache dfe summary` — when
 earlier stages are already done under the same run keys.
 
+**Several beds go in one chain**, and usually should:
+
+```bash
+bash scripts/chains/run_all.sh a.bed b.bed c.bed
+```
+
+They share nothing but the reference data — each bed gets its own control set,
+demography, cache and DFE, and its own row in the final table. What is saved is
+queue time, not computation: the sfs and demo arrays fan out over every
+(chromosome, bed) and (starting point, bed) pair, so three beds is a 66-task sfs
+array rather than three 22-task ones submitted in series. Run keys are shared, so
+every bed in one chain lands under the same six keys.
+
+### How long it takes
+
+Measured on the three-bed ELS chain of 2026-10-25, 937k intervals and 256 Mb for
+the largest bed:
+
+| stage | cost |
+|---|---|
+| sfs | about 14 min per task, 22 x beds tasks |
+| demo | about 1 h 44 for the three beds together |
+| cache | 20 min on 10 cores, and **data-independent** |
+| dfe | slowest single fit 7 m 53 s; `PACKNUMBER` fits per task |
+| phase 1, prep through bestdemo | roughly 2 hours |
+
+Treat these as a starting point, not a rule. The cost of a run depends on the
+**sample size** (the projection sets the spectrum's length and the cache's
+width), the **sequence length and interval count** of the bed, and most of all
+**how long optimisation takes to settle** — which is a property of the
+likelihood surface, not of the bed's size, and varies several-fold between beds.
+Only the dfe stage sizes itself (`DFE_TARGET_TASK_HOURS`, `DFE_MAX_TASKS`);
+`SGE_PREP_RT`, `SGE_SFS_RT` and `SGE_DEMO_RT` are fixed defaults, so a bed much
+larger than the above needs them raised deliberately. A near-per-base bed is the
+clear case: the phyloP bins carry 20-30 times the intervals of ELS and were
+given `SGE_SFS_RT=4:00:00` rather than the 3:40 default.
+
 **The answer** is `$OUT/summary/$SUMMARY_RUN/bestpdf_sumdfe.tsv`: one row per
 bed, with each pdf's fit, the six discretised DFE bins, which pdf the data
 supports, and `num_nonneutral`.

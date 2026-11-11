@@ -172,3 +172,36 @@ under 4 minutes. The 7-minute fits are genuine ones doing real work.
 
 Low priority: the deadline guard means a wrong estimate costs one extra
 `RESUME=1` pass, never lost work.
+
+
+## 4. Window from the interval edges, not from its midpoint
+
+The control window is `[mid - CTRL_FLANK, mid + CTRL_FLANK]`, so its width is
+fixed and an interval longer than `2 x CTRL_FLANK` encloses its own window
+entirely. Those intervals never find a control and are dropped, which is why
+this package cannot be used on long regions (`docs/PIPELINE.md`, the warning
+under "The control window").
+
+The alternative is to window from the edges: `[start - CTRL_FLANK, start]` and
+`[end, end + CTRL_FLANK]`, so every interval gets a window of its own length
+regardless of how long it is.
+
+Worth knowing before deciding: the edge form was the documented intent from the
+start. `windctrl_splitchr.sh:62-66` describes the window as
+`chr1 100-halfwindow_size 200+halfwindow_size` and works the example "if the
+halfwindow_size is 50, the output will be chr1 50 250", while the awk
+immediately below it computes `mid-win` to `mid+win`, which for that example
+gives `chr1 100 200`. The comment describes the edge window; the code does the
+midpoint one. The published results came from the code, and this package copies
+the code - see item 1.
+
+- [ ] Decide whether to switch, and whether it is a new option or a replacement.
+      It changes which controls pair with which targets for every annotation, so
+      it cannot be switched silently, and anything already published used the
+      midpoint form.
+- [ ] If it becomes an option, the control set is no longer one window per
+      interval but two, which changes how overlapping windows are merged and how
+      `has_qui` is counted.
+- [ ] Quantify on a short-interval bed where the two forms should nearly agree,
+      so the change can be validated against a result that already exists.
+

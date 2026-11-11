@@ -29,6 +29,11 @@ cites by number.
    which was the worst. That is the one deliberate numerical difference, about
    1e-7 in practice but unbounded for a poorly converged file.
 3. Use measured fit times instead of `DFE_SECONDS_PER_FIT`.
+4. **Window from the interval edges, not from its midpoint.** The window is a
+   fixed width around the midpoint, so an interval longer than `2 x CTRL_FLANK`
+   encloses its own window, finds no control and is dropped. That is why long
+   regions are not supported. Windowing from the edges would fix it, and the
+   original script's own comment describes the edge form.
 
 ## One finding from the acceptance runs
 

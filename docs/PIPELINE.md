@@ -71,6 +71,22 @@ that window become controls. Two consequences worth knowing:
 - The window width does **not** scale with the interval. An interval longer than
   `2 × CTRL_FLANK` has its window entirely inside itself, where controls cannot
   be, so it never finds one. `check_bed.py` warns about this before the run.
+
+  > **Warning — long regions are not supported, and the failure is silent in the
+  > result.** An interval over 50 kb is dropped for want of a control, so it
+  > contributes no SNPs and no sequence. The DFE that comes out describes only
+  > the intervals short enough to have been analysed, and `l` shrinks to match
+  > without saying which regions went. Every bed run through this package so far
+  > has been either a few-hundred-bp annotation or a near-per-base bin, so the
+  > long-domain case is untested as well as unsupported.
+  >
+  > There is no good remedy yet. Raising `CTRL_FLANK` widens the window for
+  > **every** interval, which changes which controls pair with which targets for
+  > the whole annotation - a science decision, not a fix. Windowing from the
+  > interval edges instead of its midpoint would solve it properly and is open
+  > work: `todo/tocheck.md` item 4. Until then, check the `hasqui` fraction and
+  > the preflight's long-interval count before trusting a result on long
+  > regions.
 - `CTRL_FLANK=25000` means a 50 kb window. The manuscript supplement says
   100 kb; every run used 50. Recorded in `questions.md` item 19.
 
