@@ -205,3 +205,23 @@ def test_random_beds_agree(tmp_path, seed):
         text = text.rstrip("\n")
     bulk, _, problems = agree(tmp_path, text)
     assert bulk is not None and not problems
+
+
+# --------------------------------------------------- the fallback is audible --
+
+def test_a_missing_numpy_is_said_out_loud(tmp_path, monkeypatch, capsys):
+    """The bulk reader going missing is an 11x slowdown. Silent, it is how an
+    optimisation comes to not run at all: the hoffman2 login node's python has
+    no numpy."""
+    monkeypatch.setattr(check_bed, "np", None)
+    bed = tmp_path / "ok.bed"
+    bed.write_text("chr1\t100\t200\n")
+    assert check_bed.main(["--chroms", "1", str(bed)]) == 0
+    assert "numpy is not available" in capsys.readouterr().out
+
+
+def test_nothing_is_said_when_numpy_is_there(tmp_path, capsys):
+    bed = tmp_path / "ok.bed"
+    bed.write_text("chr1\t100\t200\n")
+    assert check_bed.main(["--chroms", "1", str(bed)]) == 0
+    assert "numpy is not available" not in capsys.readouterr().out

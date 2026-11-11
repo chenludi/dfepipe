@@ -486,6 +486,14 @@ def main(argv=None):
                                                 r["n_intervals"], r["bp"]))
         if r["status"] != "PASS":
             print("      %s" % r["reason"])
+    # A fallback nobody is told about is how an optimisation comes to not run:
+    # /usr/bin/python3 on the hoffman2 login node has no numpy, and the bulk
+    # reader is then skipped with nothing in the output to say so - 67 s instead
+    # of 6 s on one phyloP bed, 71 minutes instead of 6 across 39.
+    if np is None:
+        print("  note: numpy is not available to this python, so the bed was "
+              "read line by line - about 10x slower on a near-per-base bed. "
+              "A preflight that seems to hang is usually this.")
     # Said once, not hedged on every bed: the build is the thing this cannot
     # check, and a reader should hear it exactly as often as it is true.
     print("  note: the genome build is not verified by this check. Confirm by "
