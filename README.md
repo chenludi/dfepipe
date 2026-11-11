@@ -75,5 +75,6 @@ vanishing and reappearing an hour later is normal.
 | `TODO.md` | known-unfinished work, and the open questions |
 
 Results from this package reproduce the published values it was built against to
-well inside the bootstrap spread; `docs/questions.md` records the one deliberate
-numerical difference and what else was found while porting.
+well inside the bootstrap spread. `docs/original_script_bugs.md` records what was
+found in the original pipeline while porting it, including the one place this
+package deliberately differs; none of it describes code shipped here.

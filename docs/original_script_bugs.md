@@ -1,31 +1,36 @@
-# Findings from the port
+# Bugs in the original scripts — not in this package
 
-What was found while porting the original scripts, kept because it explains why
-this package behaves as it does. Nothing here was acted on in the originals: no
-original script and no manuscript file was changed.
+These are defects found in the **original** pipeline, the one that produced the
+published results, while reading it in order to port it. None of them is in
+dfepipe: they were recorded and deliberately not reproduced. A clean dfepipe run
+does not contradict anything here.
 
-Item numbers are stable - `docs/PIPELINE.md` and `scripts/sfs/run_sfs_chrom.sh`
-cite them - so gaps in the numbering are items that were resolved and removed.
+Kept because several of those scripts are still used alongside this package -
+`filt_nc-unmask.sh` built the phyloP per-bin beds, and
+`plot_DFE_mutload2_fromcsv.py` draws the manuscript figures - so for those, these
+are live traps rather than history. Item 16 in particular: the originals' HET and
+quiescent paths no longer exist.
 
-## The one deliberate numerical difference
-
-**The original's reported "best fit" is the worst converged row of the winning
-file.** `plot_converge_dfe_0430.py:282-321` does `data_dict.update({filename:
-...})` for every row of the `# Converged results` block without breaking, so the
-last row survives, and dadi-cli writes that block best-first. This package takes
-the best row instead.
-
-The cost in the case measured was 7e-9 in log-likelihood and the sixth decimal
-of shape, but it is systematic across every published fit and unbounded for a
-poorly converged file. How far it moved published results is open:
-`todo/tocheck.md` item 2.
-
-Two other scripts in the same pipeline already take the first row
-(`dadi_cal_ll_neu_0723.py:112-127`, `make_p0_dfe_0430.py:206-221`).
+Nothing in the originals was changed. The numbering has gaps where items were
+resolved and removed; nothing cites these numbers, so they are kept only so the
+list does not shuffle.
 
 ## Errors in the original scripts
 
 Recorded, not ported. Still true unless marked otherwise.
+
+**The one this package deliberately diverges on.** The original's reported "best
+fit" is the *worst* converged row of the winning file:
+`plot_converge_dfe_0430.py:282-321` does `data_dict.update({filename: ...})` for
+every row of the `# Converged results` block without breaking, so the last row
+survives, and dadi-cli writes that block best-first. This package takes the best
+row instead - the only deliberate numerical difference between the two
+pipelines. The cost in the case measured was 7e-9 in log-likelihood and the
+sixth decimal of shape, but it is systematic across every published fit and
+unbounded for a poorly converged file. How far it moved published results is
+open: `TODO.md` open question 2. Two other scripts in the same pipeline already
+take the first row (`dadi_cal_ll_neu_0723.py:112-127`,
+`make_p0_dfe_0430.py:206-221`).
 
 6. `dadi-cli_demog_fsfile.sh`: the `scripts/` copy builds `out_demog` from
    variables assigned later (line 32 vs 38/43), so its files would lack the
