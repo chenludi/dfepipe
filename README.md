@@ -75,7 +75,4 @@ vanishing and reappearing an hour later is normal.
 | `TODO.md` | known-unfinished work, and the open questions |
 
 Results from this package reproduce the published values it was built against to
-well inside the bootstrap spread. It differs from the original pipeline in one
-deliberate way: where several fits converged, this takes the best of them and the
-original took the last, which was the worst. `TODO.md` open question 2 carries
-the detail.
+well inside the bootstrap spread.

@@ -1,6 +1,12 @@
 # To check — open questions, not blocking
 
-## 1. Why does `has_qui` change when the test bed is merged before windowing?
+## 1. The control window: what it is centred on, and how wide it is
+
+Two questions with one root - the window is a fixed width around the midpoint
+of the interval, so both what the midpoint is and how far the window reaches
+are decided by the interval rather than by where controls actually are.
+
+### 1a. Why does `has_qui` change when the test bed is merged before windowing?
 
 **Observed (ELS, 2026-09-29).** Merging the test bed before centring the control
 window changes `has_qui` on exactly two chromosomes out of 22, in opposite
@@ -173,8 +179,7 @@ under 4 minutes. The 7-minute fits are genuine ones doing real work.
 Low priority: the deadline guard means a wrong estimate costs one extra
 `RESUME=1` pass, never lost work.
 
-
-## 4. Window from the interval edges, not from its midpoint
+### 1b. Window from the interval edges, not from its midpoint
 
 The control window is `[mid - CTRL_FLANK, mid + CTRL_FLANK]`, so its width is
 fixed and an interval longer than `2 x CTRL_FLANK` encloses its own window
@@ -204,4 +209,3 @@ the code - see item 1.
       `has_qui` is counted.
 - [ ] Quantify on a short-interval bed where the two forms should nearly agree,
       so the change can be validated against a result that already exists.
-

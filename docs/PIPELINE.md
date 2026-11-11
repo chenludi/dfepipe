@@ -84,7 +84,7 @@ that window become controls. Two consequences worth knowing:
   > **every** interval, which changes which controls pair with which targets for
   > the whole annotation - a science decision, not a fix. Windowing from the
   > interval edges instead of its midpoint would solve it properly and is open
-  > work: `todo/tocheck.md` item 4. Until then, check the `hasqui` fraction and
+  > work: `todo/tocheck.md` item 1. Until then, check the `hasqui` fraction and
   > the preflight's long-interval count before trusting a result on long
   > regions.
 - `CTRL_FLANK=25000` means a 50 kb window, `mid` plus or minus 25 kb.

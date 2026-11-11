@@ -374,7 +374,7 @@ nearly invisible.
 - **Promise a number that matches a published table exactly.** This pipeline
   takes the *best* converged fit; the original took the last, which was the
   worst. That is the one deliberate numerical difference, ~1e-7 in practice but
-  unbounded for a poorly converged file. See `TODO.md` open question 2.
+  unbounded for a poorly converged file.
 - **Claim the assembly was checked when it was not.** The preflight says so
   explicitly when it could not check.
 

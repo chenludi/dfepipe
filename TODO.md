@@ -16,24 +16,19 @@ there rather than archived, so `git log` is where it went. Disk policy is
 
 ## Open questions
 
-The numbering matches the sections of `todo/tocheck.md`, which `AGENTS.md`
-cites by number.
+Developer notes. `todo/tocheck.md` holds the detail and keeps its own numbering,
+which shipped code cites by number.
 
-1. **Does `has_qui` change when the test bed is merged before windowing?**
-   `MERGE_BEFORE_WINDOW` currently has no effect, because `run_prep.sh` already
-   merges, so the bed reaching sfs is merged either way. Verified on chr22:
-   re-merging changes neither the interval count nor the bp. It does matter for
-   a run that starts at sfs and skips prep.
-2. **How much did the worst-converged-row bug move the published results?**
-   This pipeline takes the *best* converged fit; the original took the last,
-   which was the worst. That is the one deliberate numerical difference, about
-   1e-7 in practice but unbounded for a poorly converged file.
-3. Use measured fit times instead of `DFE_SECONDS_PER_FIT`.
-4. **Window from the interval edges, not from its midpoint.** The window is a
-   fixed width around the midpoint, so an interval longer than `2 x CTRL_FLANK`
-   encloses its own window, finds no control and is dropped. That is why long
-   regions are not supported. Windowing from the edges would fix it, and the
-   original script's own comment describes the edge form.
+1. **The control window is centred on the interval's midpoint, and its width is
+   fixed.** So an interval longer than `2 x CTRL_FLANK` encloses its own window
+   entirely, finds no neutral control, and is dropped from the analysis without
+   appearing in the result. That is the caveat on the current scripts and it
+   needs fixing: windowing from the interval edges would give every interval a
+   window of its own length. The same root decides what the midpoint is in the
+   first place, which is why merging the bed before windowing moves `has_qui` on
+   two chromosomes. `todo/tocheck.md` item 1.
+2. Use measured fit times instead of `DFE_SECONDS_PER_FIT`. `todo/tocheck.md`
+   item 3.
 
 ## One finding from the acceptance runs
 
