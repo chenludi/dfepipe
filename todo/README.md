@@ -4,9 +4,9 @@ Work identified but not done. One file per topic.
 
 | file | what |
 |---|---|
-| `tocheck.md` | open questions about the pipeline's own behaviour: the merge-vs-unmerge control window, and how much the worst-converged-row bug moved published results |
-| `final_clean_rerun.md` | the acceptance test: delete the development output and run the whole chain once, untouched |
-| `vendor_and_docs.md` | what is still outside the package, and the three flag/naming wrinkles |
+| `tocheck.md` | open questions about the pipeline's own behaviour: the merge-vs-unmerge control window, how much the worst-converged-row bug moved published results, and sizing fits from measured times |
+| `vendor_and_docs.md` | what is still outside the package, and the flag/naming wrinkles |
 | `toimplement_pdf_neugammazero.md` | the neugammazero pdf, removed 2026-09-30; everything needed to put it back |
 
-Resolved questions live in `docs/questions.md`. Disk policy is `docs/tidyup.md`.
+Finished work is removed from here rather than archived; `git log` holds it.
+Disk policy is `docs/tidyup.md`.

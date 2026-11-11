@@ -1,20 +1,5 @@
 # To do: the last self-containment gaps
 
-Closed on 2026-10-01, recorded here because each was found the same way - by
-giving the package to an agent with no other context and watching where it had
-to guess:
-
-- the two R scripts `run_concat.sh` shelled out to are now vendored in
-  `scripts/sfs/R/`, byte-identical, with provenance
-- the input bed is now preflighted (`scripts/checks/check_bed.py`)
-- `sync/push.sh` ships, so nobody has to invent an rsync. It uses checksums and
-  `--delete`, and `CHECK=1` compares without writing
-- `config/profiles/hoffman_klohmuel.conf`, which could not run and called itself
-  "the worked example", is replaced by `config/profiles/template.conf`
-- `RESID_REFERENCE` is gone: nothing read it and the file it named did not exist
-- `MUTRATE_PATTERN` is overridable now; the literal `}` in `{chrnum}` had been
-  closing the `${VAR:-default}` expansion early
-
 ## Still outside the package
 
 - [ ] `DEMO_P0_DIR`, the demographic starting-point grids, live under
@@ -31,11 +16,15 @@ to guess:
 
 ## Still unresolved, and worth knowing
 
-- [ ] `FORCE=1` means three different things: bypass an upstream gate
-      (`gate.py`), redo every DFE fit (`run_dfe.sh`), and overwrite a finished
-      table (`run_summary.sh`, `run_bestpdf.sh`). There is no way to ask for
-      only one, so `FORCE=1 RESUME=1` discards the fits `RESUME` was meant to
-      keep. Separate flags would fix it.
+- [ ] `FORCE=1` is still overloaded, though less than this note first said.
+      It was written as three meanings; it turned out to be six, and the
+      worst of them is now fixed. `SKIP_GATE=1` (2026-10) bypasses an
+      upstream gate and does nothing else, so clearing a gate no longer
+      rewrites finished work - which it did, because the gate's own message
+      used to recommend `FORCE=1`. What remains conflated is redo every DFE
+      fit (`run_dfe.sh`) with overwrite a finished table (`run_summary.sh`,
+      `run_bestpdf.sh`), so `FORCE=1 RESUME=1` still discards the fits
+      `RESUME` was meant to keep. Separate flags would finish the job.
 - [ ] `RESUME=1` is honoured only by `run_dfe.sh`. So the natural recovery
       command, `RESUME=1 FROM=dfe bash scripts/chains/run_all.sh <bed>`, is
       *expected* to log a `fitneu` failure and usually a `summary` failure,

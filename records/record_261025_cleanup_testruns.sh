@@ -13,7 +13,8 @@
 #   dev   output_dfepipe.dev_pre261001, the development tree. 8.0 G, of which
 #         7.75 G is scratch left by one killed ELS sfs run (fs_260929nm): the
 #         EXIT trap in run_sfs_chrom.sh does not fire on SIGKILL. No result in
-#         it was ever used; dfe_260929 is the mixed-cache run, tocheck.md item 4.
+#         it was ever used; dfe_260929 holds fits made against two different
+#         caches, which is why CACHE_MARKER is now part of the directory name.
 #   all   also output_dfepipe, the two validated acceptance runs. 543 M. Their
 #         tables, DFE csv and figures are already under
 #         a_results_weekly/mv_261002_dfepipe_run{1,2}/ locally, and the script

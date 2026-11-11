@@ -1,118 +1,41 @@
-# Questions for Chenlu
+# Findings from the port
 
-Found while porting. Nothing acted on; no original script or manuscript file
-changed.
+What was found while porting the original scripts, kept because it explains why
+this package behaves as it does. Nothing here was acted on in the originals: no
+original script and no manuscript file was changed.
 
-## Read first — affects every published DFE
+Item numbers are stable - `docs/PIPELINE.md` and `scripts/sfs/run_sfs_chrom.sh`
+cite them - so gaps in the numbering are items that were resolved and removed.
 
-**A. The reported "best fit" is the WORST converged row of the winning file.**
-`plot_converge_dfe_0430.py:282-321` does `data_dict.update({filename: ...})` for
-every row of the `# Converged results` block without breaking, so the last row
-survives. dadi-cli writes that block best-first. Verified on
-`178.InferDFE.bestfits` (phastCons17way_0-5_nomiss): the rows are
--610.1733440069229 / -610.1733440099965 / **-610.1733440139265**, and the
-published value is the third. Cost here is 7e-9 in ll and the 6th decimal of
-shape, but it is systematic across every published fit and unbounded for a
-poorly converged file. **RESOLVED 2026-09-30: take the best row.** This is now
-the only deliberate numerical difference between the old and new pipelines;
-the impact on published values is a todo in todo/tocheck.md.
-Two other scripts in the same pipeline already take the FIRST row
+## The one deliberate numerical difference
+
+**The original's reported "best fit" is the worst converged row of the winning
+file.** `plot_converge_dfe_0430.py:282-321` does `data_dict.update({filename:
+...})` for every row of the `# Converged results` block without breaking, so the
+last row survives, and dadi-cli writes that block best-first. This package takes
+the best row instead.
+
+The cost in the case measured was 7e-9 in log-likelihood and the sixth decimal
+of shape, but it is systematic across every published fit and unbounded for a
+poorly converged file. How far it moved published results is open:
+`todo/tocheck.md` item 2.
+
+Two other scripts in the same pipeline already take the first row
 (`dadi_cal_ll_neu_0723.py:112-127`, `make_p0_dfe_0430.py:206-221`).
 
-**B. Only 4 starting points were lost to the clock, not 46.** Diagnosed
-2026-09-30 for phastCons17way 0-5 gamma (190 starting points):
+## Errors in the original scripts
 
-| outcome | count |
-|---|---|
-| converged, wrote `.bestfits` | 144 |
-| ran all 100 optimizations, no valid likelihood | 42 |
-| never started (h_rt kill, contiguous 46-49) | 4 |
-
-The 42 are not a timing problem: every row of their `.opts` files has `--` for
-the likelihood and `scale` pinned at the 1e-10 lower bound, i.e. the optimiser
-degenerated. They start from the smallest shapes in the grid
-(`make_p0_dfe_0430.py` log-spaces shape 1e-10 to 2); e.g. point 62 starts at
-shape 4.8e-05.
-
-Still true that `PACKNUMBER=50` x `timeout 60m` = 50 h exceeds `h_rt=23:50:00`
-(`submit_dadi-cli_dfebash.sh:8,66`), and that is what cost the 4. **Raise h_rt,
-or cut PACKNUMBER?** Separately: **should the p0 grid still spend ~22% of its
-starting points on shapes that cannot produce a likelihood?**
-
-**C. dELS and pELS rest on 3 and 4 converged fits.** Measured 2026-09-30 over
-60 published gamma runs. Nearly every starting point for those two produced no
-output at all - the packs exist, so the jobs were submitted, but almost nothing
-ran.
-
-| run | converged | produced any output | starting points |
-|---|---|---|---|
-| ELS | 132 | 144 | 190 |
-| phastCons17way 0-5 | 144 | 186 | 190 |
-| CDS | 135 | 143 | 190 |
-| PLS | 96 | 138 | 190 |
-| **dELS** | **3** | **3** | 158 |
-| **pELS** | **4** | **4** | 180 |
-| Exc/Inh.PeakCalls | 3 | 3 | ~150-180 |
-
-Not wrong - a converged fit is a converged fit - but far less explored than the
-rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
-
-## Decisions needed
-
-0. **Cache runtime.** Our run took **20 min**, not the 10:10:00 your script
-   requested. Cost is data-independent (grid size ~quadratic, gamma_pts linear,
-   sample size minor, sequence length none), so one recommendation covers every
-   bed. `SGE_CACHE_RT` is now 2:00:00, and `submit_cache.sh` estimates from
-   40 core-seconds per spectrum and raises the request itself for a bigger
-   marker (`large`: ~12 h estimated, 36 h requested). A killed build now FAILs
-   with "raise SGE_CACHE_RT and re-run - a partial cache cannot be resumed".
-   **Still on `highp`: keep it now the job is 20 min rather than 10 h?**
-1. ~~`CACHE_MIN_SIZE_FRAC`~~ **RESOLVED: 0.5 kept.**
-2. ~~`HASQUI_MIN_FRAC`~~ **RESOLVED: 0.90 kept.**
-3. ~~Per-chromosome `hasqui_ratio`~~ **RESOLVED: added**, against that
-   chromosome's own prep bp, so one bad chromosome is visible.
-4. ~~DFE run directory naming~~ **RESOLVED: marker added**, now
-   `<CACHE_RUN>-<CACHE_MARKER>-<pdf>-<DFE_RUN>`.
-5. ~~Seven config keys the stages needed and `config/` lacks.~~ **Resolved
-   2026-09-30:** every tunable is now in `config/pipeline.conf` and the stages
-   assert rather than default. `neugammazero` was later removed from the
-   pipeline altogether; everything needed to restore it is in
-   `todo/toimplement_pdf_neugammazero.md`. `scripts/checks/conf.py` reads the config so a
-   check's argparse default is the configured value rather than a second copy.
-
-### Outcome vocabulary and verdicts — resolved 2026-09-30
-
-- `bestfit` (wrote a `.bestfits`) and `converged` (that file carries a converged
-  block) are now separate. The convergence warning uses `converged`, the
-  stricter number; keying it on `bestfit` was about 1.6x too generous.
-- `DFE_MIN_CONVERGED_N = 10` **stays**. Few converged fits is worth flagging
-  whatever the fraction says: it usually means poor starting points, a hard
-  surface, or a grid the optimiser never explored.
-- A fit that never started optimising (no `.opts`) is `error`, and every
-  starting point erroring is a FAIL: that is systematic — missing cache,
-  unreadable `--demo-popt`, wrong environment — not a hard likelihood surface.
-  A `timeout` is `fail_optimize`, not worth retrying, and `RESUME=1` covers only
-  `not_run`.
-- `run_concat.sh` refuses when any chromosome has no usable `.fs`/`.tab` rather
-  than quietly leaving it out; `CHROMS` is the deliberate way to run a subset.
-
-## Errors in the original scripts (not changed, not ported)
+Recorded, not ported. Still true unless marked otherwise.
 
 6. `dadi-cli_demog_fsfile.sh`: the `scripts/` copy builds `out_demog` from
    variables assigned later (line 32 vs 38/43), so its files would lack the
    marker `max_ll_key` needs; the cluster copy has the `dadi-cli InferDM` call
-   deleted. Both edits postdate your results.
+   deleted. Both edits postdate the published results.
 7. `--output` / `--cpu` / `--sample-size` are argparse abbreviations, not real
    options (`--output-prefix`, `--cpus`, `--sample-sizes`).
 8. `get_fs_mut_bychr.sh` writes temp files into the mutation-rate reference
    directory, so 22 array tasks can collide.
-9. **Resolved 2026-09-30.** `plot_bestll_demo_args_0421.py:119-122` gives
-   `bottlegrowth_1d` two parameters where it takes three, so that model aborts
-   at :163. Moot for us: `DEMO_MODEL` now accepts only `three_epoch` and
-   `two_epoch`, the two with a p0 grid in `DEMO_P0_DIR`. Anything else needs its
-   grid built first, so the config refuses it up front rather than failing later
-   in run_demo.sh.
-10. `piperef_stddfe_4_plotdemo.sh:52` `dadi-cli Plot` evidently never ran — no
+10. `piperef_stddfe_4_plotdemo.sh:52` `dadi-cli Plot` evidently never ran - no
     `*.bestfits.pdf` exists beside any published result.
 11. Destructive paths: `rm -r $dirout` in steps 5 and 7; the second `.bak`
     destruction in `make_p0_dfe_0430.py:284-295`; the unconditional `.bak`
@@ -120,62 +43,53 @@ rest, and both appear in Data S2c and Fig. S2. **Worth re-running?**
     copy keyed only by bed and pdf.
 12. Four "Error: ... does not exist" messages whose `exit 1` is commented out,
     so a missing input surfaces later as a traceback.
-13. `piperef_stddfe_8_plotdfe.sh` has no `neugammazero` branch and exits 1 —
-    the pdf step 7 was extended to fit. Moot for us: neugammazero is out of the
-    pipeline (`todo/toimplement_pdf_neugammazero.md`).
-14. **Checked 2026-09-30, nothing published was affected.** The `:370`
-    IndexError needs <=2 converged starting points; the two thinnest published
-    runs are dELS with 3 and pELS with 4, and both completed - dELS has a
-    4-line large_ll.txt, 17 figures and its csv, pELS 5 lines and 18 figures.
-    Still true that `:370` IndexErrors when <=2 converged; `:404` intends a `large_ll.txt` backup that never happens; `:494`
-    rounds figure names to 3 decimals so near-identical fits overwrite each
-    other (4 pdfs for 10 plotted fits in the reference dir).
+14. `plot_converge_dfe_0430.py:370` IndexErrors when two or fewer starting
+    points converged; `:404` intends a `large_ll.txt` backup that never happens;
+    `:494` rounds figure names to 3 decimals, so near-identical fits overwrite
+    each other. Checked: nothing published was affected - the two thinnest published
+    runs converged 3 and 4 starting points and both completed.
 15. `piperef_stddfe_8_plotdfe.sh:69` hardcodes `cachenumber=1`, so step 8 can
     only read `cache_1.spectra.bpkl` whatever step 6 built.
-16. **Confirmed 2026-09-30 by reproduction, not by reading.**
-    `piperef_stddfe_1_rmHETqui.sh` -> `submit_funsp_exhetqui.sh` ->
-    `funsp_exhetqui.sh` stops after HET and quiescent and only counts lengths.
-    `submit_exHETquiencmask.sh:35,37` repeats those two subtracts and then calls
-    `filt_nc-unmask.sh`, which subtracts CDS (`:38`) and intersects the mask
-    (`:46-47`). The `s.nc_` prefix on every published file is that script's
-    `output1`, so the published beds came through it. Our port reproduces those
-    beds exactly, which is the actual evidence.
-    Note the originals' HET/quiescent paths are stale: they name
-    `chromHMM_100_states/temp_HET.bed`, which no longer exists - the files are
-    now in `chromHMM_100_states/temp/`. Our profile points at the files that
-    exist, and prep matching the published output confirms they are the right
-    ones. The four filters are set operations, so their order does not change
-    the final bases, only the intermediate counts in lengths.tsv.
+16. The published beds came through `filt_nc-unmask.sh`, not through the chain
+    the step-1 script suggests: `piperef_stddfe_1_rmHETqui.sh` stops after HET
+    and quiescent and only counts lengths, while `submit_exHETquiencmask.sh`
+    repeats those two subtracts and then subtracts CDS and intersects the mask.
+    The `s.nc_` prefix on every published file is that script's output. This
+    package reproduces those beds exactly, which is the evidence that the
+    reading is right.
+
+    The originals' HET and quiescent paths are stale - they name
+    `chromHMM_100_states/temp_HET.bed`, which no longer exists - so a profile
+    must point at the files that do. The four filters are set operations, so
+    their order changes only the intermediate counts in `lengths.tsv`.
 17. GNU-only: `stat -c %s` (`piperef_stddfe_2_concatefs.sh`), `sed -i`
     (`piperef_stddfe_9_sumdfe.sh`).
-18. Checked and not a bug: `dadi_cal_ll_neu_0723.py:206-214` passes an unfolded
-    model against folded data, but `dadi.Inference.ll_per_bin` folds the model
-    itself. Verified identical to 1e-11.
+18. Checked and **not** a bug: `dadi_cal_ll_neu_0723.py:206-214` passes an
+    unfolded model against folded data, but `dadi.Inference.ll_per_bin` folds
+    the model itself. Verified identical to 1e-11.
 
-## Manuscript items (recorded, not changed)
+## Manuscript items
 
-19. **Control window**: the supplement says "100 kb window centered on the middle
-    of the test sites"; every run used `mid +/- 25000`, i.e. 50 kb. Added as
-    item 28 of `ToCorrect_260922.docx`.
+Recorded, not changed.
+
+19. **Control window.** The supplement says "100 kb window centered on the
+    middle of the test sites"; every run used `mid +/- 25000`, i.e. 50 kb.
 20. **Two published csv files for one bed came from different script versions.**
-    `dfe_..._gamma.csv` has `0.0` in the `>=0.5` bin (current CDF form);
+    `dfe_..._gamma.csv` has `0.0` in the `>=0.5` bin, the current CDF form;
     `dfe_..._neugamma.csv` has `9.61e-126`, exactly the commented-out `quad`
-    integration, so it predates the 2025/03/25 switch. We use the CDF form.
-21. **Mixed provenance**, split by date:
+    integration, so it predates the 2025-03-25 switch. The summary table was
+    assembled from pre-switch csv files. This package uses the CDF form, which
+    matches the original's current code.
+21. **Mixed provenance** in the published results, split by date:
     - windowing: unmerged before 2024-11-04 (ELS, EnhA, PromF, TSS, BivProm,
-      PLS, phastCons17 bins), merged after (PromF_TSS_BivProm, 2025 bins).
+      PLS, the phastCons17 bins), merged after (PromF_TSS_BivProm, 2025 bins).
     - dadi: demography and cache under 2.3.0, DFE fits under 2.3.3.
-    Both ~1e-6 on everything measured.
 
-22. **Resolved 2026-09-30: keep GRIDS="1500 1520 1540".** dadi warns during the
-    cache build that "Most negative value is -178.88 ... rerun with larger
-    values for --grids", and 11 of 300 spectra come back unusable - identically
-    in Chenlu's cache and ours, so reproduced, not introduced. Chenlu had
-    already tested larger grids in earlier work and they did not help much, so
-    the extra cache time buys nothing. No comparison run.
+    Both are about 1e-6 on everything measured.
 
-## Reference: how much a DFE actually moves
+## How much a DFE actually moves
 
-Spread across your 15 EnhA bootstrap replicates (Data S2a, Fig. S14):
-neutral bin 0.0161, other bins 0.0076-0.0089. Our port reproduces the published
-bins to 8 significant figures, six orders of magnitude inside that.
+The scale to judge any difference against. Spread across the 15 EnhA bootstrap
+replicates (Data S2a, Fig. S14): neutral bin 0.0161, other bins 0.0076-0.0089.
+The two validation runs reproduce the published bins to 8.2e-08 and 2.5e-05
+relative, both far inside that spread.

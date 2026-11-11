@@ -74,6 +74,19 @@ intervals.
       2 x CTRL_FLANK and how much sequence they hold, so the size of the problem
       is visible per bed before a run.
 
+      **2026-10-25: the original script's comment already says edge.**
+      `windctrl_splitchr.sh:62-66` documents the window as
+      `chr1 100-halfwindow_size 200+halfwindow_size` and works the example
+      "if the halfwindow_size is 50, the output will be chr1 50 250". The awk
+      immediately below it (`windctrl_splitchr.sh:68-76`) computes
+      `mid=($2+$3)/2` and then `mid-win` to `mid+win`, which for that same
+      example gives `chr1 100 200`. So the comment describes the edge window
+      and the code does the midpoint one. The published results came from the
+      code, and our port copies the code: `scripts/sfs/run_sfs_chrom.sh:338-341`
+      is the same arithmetic, with CTRL_FLANK=25000 matching the original's
+      halfwindow_size default (`windctrl_fsmut_chrs.sh:72`). Worth knowing that
+      the edge form was the documented intent from the start.
+
 **2026-10-01: the key has no effect at all.** `run_prep.sh:112` merges prep's
 output (a deviation from the original, which did not), and the sfs stage windows
 *prep's* bed - so by the time `MERGE_BEFORE_WINDOW` is consulted the merge has
@@ -159,69 +172,3 @@ under 4 minutes. The 7-minute fits are genuine ones doing real work.
 
 Low priority: the deadline guard means a wrong estimate costs one extra
 `RESUME=1` pass, never lost work.
-
-
-## 4. Two caches got mixed inside one DFE run directory
-
-**What happened (2026-09-30).** `DFE_RUN=dfe_260929` for phastCons17way 0-5
-holds fits made against two different caches:
-
-| run | reference cache `result_dadi/...-demo_three_epoch-1` | pipeline cache `demo_260929-1-cache_260929` |
-|---|---|---|
-| gamma | 171 | 59 |
-| neugamma | 99 | 52 |
-
-**How.** The validation run set `DFE_CACHE_FILE` to the existing reference cache
-on purpose, to compare against the published result. Later resubmissions did not
-set it, so `run_dfe.sh` fell back to its default path - which by then existed,
-because the cache stage had run. `submit_dfe.sh` regenerates the packs on every
-submission, so each resubmission rewrote the command lines with the new cache,
-and `spec.txt` with them. Finished fits kept the old cache; new fits got the new
-one. Nothing warned.
-
-Worse, `spec.txt` now records only the later cache, so the provenance file
-misstates what most of the fits used.
-
-**Fixed:** `run_dfe.sh` refuses to resume when the resolved cache differs from
-`spec.txt`'s `cachefile=`, naming both paths. `FORCE=1` or a new `DFE_RUN` is
-then the way forward.
-
-**Decision 2026-09-30: leave it.** `dfe_260929` stays as it is and development
-continues on it. The two caches agree to the precision anything here is measured
-at, so the mixture does not mislead a development check, and re-running it now
-would cost hours for no new information. It is not a manuscript result.
-Correctness is established instead by the clean end-to-end rerun, which is the
-acceptance test for the finished package - see `todo/final_clean_rerun.md`.
-- [ ] `spec.txt` is rewritten on every pack regeneration, so it describes the
-      last submission rather than the run. Either stop rewriting it once fits
-      exist, or version it.
-- [ ] Packs are regenerated unconditionally by `submit_dfe.sh`. Stale packs from
-      a larger PACKNUMBER survive if the new names do not collide with the old
-      ones, which would run some starting points twice. Clear the old packs when
-      regenerating.
-
-
-## 5. RESUME=1 started a fresh run instead of resuming
-
-**What happened (2026-09-30).** Adding `CACHE_MARKER` to the DFE run directory
-name (`<CACHE_RUN>-<CACHE_MARKER>-<pdf>-<DFE_RUN>`, questions.md item 4) moved
-where `run_dfe.sh` looks. The arrays of that morning ran a cluster copy from
-before the rename, so their 151 neugamma fits landed in
-`cache_260929-neugamma-dfe_260929`, while a later `RESUME=1` submission looked
-for `cache_260929-1-neugamma-dfe_260929`, found nothing, and began from scratch.
-`run_bestdfe.sh` then read those 9 orphan fits and reported ll=-6397 where the
-real answer is -610.
-
-Nothing warned at any point: an empty directory is indistinguishable from a new
-run, and "resumed" output looks like success.
-
-**Fixed:** `run_dfe.sh` now fails when `RESUME=1` is set and the run directory is
-absent or empty, naming the keys to check. The real runs were renamed into the
-marker convention and the 9-fit directory kept as
-`...-dfe_260929.aborted-14984282`.
-
-- [ ] Nothing reconciles a run directory against the config that made it. The
-      cache guard (item 4) and this one are both after-the-fact patches for the
-      same gap: `spec.txt` records the inputs but nothing checks it on re-entry.
-      A single `verify_spec` step, run whenever a stage re-enters an existing run
-      directory, would replace both.

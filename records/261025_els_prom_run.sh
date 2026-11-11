@@ -43,8 +43,8 @@ bash scripts/chains/run_all.sh $d/GRCh38-ELS.bed $d/GRCh38-ELS_x_Prom.bed $d/GRC
 # intact - which settles an open question, qsub -v does preserve spaces here.
 #
 # The arrays were then split over the product, outputs deleted, and the whole
-# thing rerun from prep. See todo/tocheck.md item 6 for the defect; in short,
-# sfs and demo both looped over the beds inside one task, so a task's cost
+# thing rerun from prep. The defect: sfs and demo both looped over the beds
+# inside one task, so a task's cost
 # scaled with the bed count while its h_rt stayed one number for the stage.
 # Splitting needed no change to the output layout, because every file was
 # already keyed by bed and by chromosome or marker.
