@@ -87,8 +87,7 @@ that window become controls. Two consequences worth knowing:
   > work: `todo/tocheck.md` item 4. Until then, check the `hasqui` fraction and
   > the preflight's long-interval count before trusting a result on long
   > regions.
-- `CTRL_FLANK=25000` means a 50 kb window. The manuscript supplement says
-  100 kb; every run used 50.
+- `CTRL_FLANK=25000` means a 50 kb window, `mid` plus or minus 25 kb.
 
 The target set that goes downstream is named `has_qui` — the intervals that
 **found** a control. Intervals with no control in their window are not analysed.
