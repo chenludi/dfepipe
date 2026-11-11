@@ -383,6 +383,7 @@ nearly invisible.
 ## 8. Where things are
 
 ```
+README.md              the front page: what this is, what it needs, how to run it
 AGENTS.md              this file
 docs/PIPELINE.md       per-stage detail: inputs, outputs, what each check means
 docs/io_schematic.*    what each stage reads and writes, and where it lands
