@@ -5,11 +5,11 @@ published results, while reading it in order to port it. None of them is in
 dfepipe: they were recorded and deliberately not reproduced. A clean dfepipe run
 does not contradict anything here.
 
-Kept because several of those scripts are still used alongside this package -
+Kept because several of those scripts are still used alongside this package:
 `filt_nc-unmask.sh` built the phyloP per-bin beds, and
-`plot_DFE_mutload2_fromcsv.py` draws the manuscript figures - so for those, these
-are live traps rather than history. Item 16 in particular: the originals' HET and
-quiescent paths no longer exist.
+`plot_DFE_mutload2_fromcsv.py` draws the manuscript figures. For those, the
+items below are worth reading before running them again - the destructive paths
+in item 11 above all.
 
 Nothing in the originals was changed. The numbering has gaps where items were
 resolved and removed; nothing cites these numbers, so they are kept only so the
@@ -63,10 +63,13 @@ take the first row (`dadi_cal_ll_neu_0723.py:112-127`,
     package reproduces those beds exactly, which is the evidence that the
     reading is right.
 
-    The originals' HET and quiescent paths are stale - they name
-    `chromHMM_100_states/temp_HET.bed`, which no longer exists - so a profile
-    must point at the files that do. The four filters are set operations, so
-    their order changes only the intermediate counts in `lengths.tsv`.
+    Not a defect, but worth knowing when reading them: the originals name
+    `chromHMM_100_states/temp_HET.bed`, and those files now sit one directory
+    down, in `chromHMM_100_states/temp/`, under the same names. The path was
+    right when the script ran; the directory moved afterwards. `HET_BED` and
+    `QUI_BED` in a profile point at where they are now. The four filters are set
+    operations, so their order changes only the intermediate counts in
+    `lengths.tsv`.
 17. GNU-only: `stat -c %s` (`piperef_stddfe_2_concatefs.sh`), `sed -i`
     (`piperef_stddfe_9_sumdfe.sh`).
 18. Checked and **not** a bug: `dadi_cal_ll_neu_0723.py:206-214` passes an
