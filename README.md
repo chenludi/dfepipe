@@ -76,3 +76,10 @@ vanishing and reappearing an hour later is normal.
 
 Results from this package reproduce the published values it was built against to
 well inside the bootstrap spread.
+
+## Credit
+
+The analysis, and the original scripts that produced the published results, are
+Chenlu Di's work. `dfepipe` is those scripts read, checked against their own
+published output, and packaged into this configuration-driven form, done with
+Claude (Anthropic). The original scripts were not changed in the process.
