@@ -27,7 +27,7 @@
 # itself was fine; three stages stopped because of the push. ALLOW_RUNNING=1
 # overrides, for when the queued jobs are unrelated to the package.
 #
-# Output is NOT synced. Results live under $OUT on the cluster and are never
+# Output is not synced. Results live under $OUT on the cluster and are never
 # copied back by this script - they are large, and overwriting a result with a
 # local stale copy would be the worst thing this could do. For the same reason
 # --delete is safe here: it only ever touches the package directory.
@@ -64,7 +64,7 @@ if [[ "${DRY_RUN:-0}" != "1" && "${CHECK:-0}" != "1" \
                "${SGE_ROOT}/bin/lx-amd64/qstat" /u/local/bin/qstat; do
         [ -n "$c" ] && [ -x "$c" ] || continue
         out=$("$c" -u "$USER" 2>/dev/null); rc=$?
-        # A blank qstat means an empty queue ONLY when it also succeeded. A
+        # A blank qstat means an empty queue only when it also succeeded. A
         # failed qstat prints nothing either, and reading that as "idle" is the
         # mistake this whole block exists to prevent.
         [ $rc -eq 0 ] || continue
@@ -104,7 +104,7 @@ EXCLUDES=(
 # --delete matters as much as the copy: a script deleted here must not linger
 # there, or it can still be sourced. The destination is the package's own
 # directory, and output lives under $OUT elsewhere, so nothing else is at risk.
-# --delete-excluded is deliberately NOT set: the excluded paths (.git, caches)
+# --delete-excluded is deliberately not set: the excluded paths (.git, caches)
 # are left alone if the remote happens to have them.
 flags=(-rlc --delete --no-perms --no-times --itemize-changes)
 [[ "${DRY_RUN:-0}" == "1" || "${CHECK:-0}" == "1" ]] && flags+=(--dry-run)
@@ -133,14 +133,26 @@ echo "push.sh: ${n} file(s) transferred."
 # really are what is here, since everything else is reasoned about from them.
 if [[ "${DRY_RUN:-0}" != "1" ]]; then
   host="${dest%%:*}"; path="${dest#*:}"
+  # A leading ~ has to reach the remote shell unquoted to expand, but the path
+  # still needs quoting against spaces. Hand the remote $HOME instead and let it
+  # expand that inside double quotes. Single-quoting the whole path, as this did
+  # until 2026-10-25, made every push to a ~ destination report "remote absent" -
+  # a verification that always fails is one you learn to ignore.
+  rpath="${path}"
+  case "$rpath" in
+    "~/"*) rpath="\$HOME/${rpath#\~/}" ;;
+    "~")   rpath="\$HOME" ;;
+  esac
+  bad=0
   for f in config/pipeline.conf scripts/chains/run_all.sh; do
     l="$(shasum -a256 "${PKG}/${f}" 2>/dev/null | cut -c1-16)"
-    r="$(ssh -o BatchMode=yes "$host" "sha256sum '${path}/${f}' 2>/dev/null | cut -c1-16" 2>/dev/null | tr -d '\r')"
+    r="$(ssh -o BatchMode=yes "$host" "sha256sum \"${rpath}/${f}\" 2>/dev/null | cut -c1-16" 2>/dev/null | tr -d '\r')"
     if [[ -n "$r" && "$l" == "$r" ]]; then
       printf '  verified  %s\n' "$f"
     else
       printf '  MISMATCH  %s (local %s, remote %s)\n' "$f" "$l" "${r:-absent}" >&2
-      exit 1
+      bad=1
     fi
   done
+  [[ "$bad" -eq 0 ]] || exit 1
 fi

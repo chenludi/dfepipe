@@ -98,3 +98,43 @@ def test_the_header_documents_the_override():
     assert "ALLOW_RUNNING=1 bash sync/push.sh" in text
     # and says why, since the reason is the whole justification for the refusal
     assert "pre-push copy" in text
+
+
+# ------------------------------------------------- the post-push verification --
+
+def test_verification_resolves_a_tilde_destination(tmp_path):
+    """The verify step single-quoted the remote path, so `~` reached the remote
+    shell literally and sha256sum never found the file. Every push to a `~`
+    destination then printed "MISMATCH ... remote absent" and exited 1, although
+    the push itself had worked - checked by hand on 2026-10-25, where the remote
+    hash matched exactly. A check that always fails is one you stop reading."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    # stand in for the remote: refuse a literal ~, otherwise hash the real file
+    (bin_dir / "ssh").write_text(
+        "#!/bin/bash\n"
+        'cmd="${!#}"\n'
+        'case "$cmd" in *"~"*) exit 0 ;; esac\n'          # literal tilde: no output
+        'f="${cmd#*\\"}"; f="${f%%\\"*}"\n'
+        'f="${f/\\$HOME/%s}"\n'                            # the stub's own "home"
+        "shasum -a256 \"$f\" 2>/dev/null | cut -c1-16\n" % ROOT.parent)
+    (bin_dir / "rsync").write_text("#!/bin/bash\nexit 0\n")
+    for f in ("ssh", "rsync"):
+        os.chmod(bin_dir / f, 0o755)
+    e = dict(os.environ)
+    e["PATH"] = "%s:%s" % (bin_dir, e["PATH"])
+    e["ALLOW_RUNNING"] = "1"
+    r = subprocess.run(["bash", PUSH, "testhost:~/%s" % ROOT.name],
+                       capture_output=True, text=True, env=e)
+    assert "MISMATCH" not in r.stderr, r.stderr
+    assert "verified  config/pipeline.conf" in r.stdout, (r.stdout, r.stderr)
+
+
+def test_both_verified_files_are_reported_not_just_the_first(tmp_path):
+    """It exited on the first mismatch, so a second broken file stayed hidden
+    until the first was fixed and the push run again."""
+    text = pathlib.Path(PUSH).read_text()
+    i = text.index("for f in config/pipeline.conf scripts/chains/run_all.sh")
+    body = text[i:i + 900]
+    assert "bad=1" in body, "a mismatch must not exit the loop"
+    assert 'MISMATCH' in body
