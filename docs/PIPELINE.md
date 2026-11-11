@@ -88,7 +88,7 @@ that window become controls. Two consequences worth knowing:
   > the preflight's long-interval count before trusting a result on long
   > regions.
 - `CTRL_FLANK=25000` means a 50 kb window. The manuscript supplement says
-  100 kb; every run used 50. Recorded in `questions.md` item 19.
+  100 kb; every run used 50.
 
 The target set that goes downstream is named `has_qui` — the intervals that
 **found** a control. Intervals with no control in their window are not analysed.

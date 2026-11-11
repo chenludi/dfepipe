@@ -35,7 +35,7 @@
 #       chromosome's VCF, project to PROJECTION, write
 #       the .fs and the fsmut table                    get_fs_mut_bychr.sh:57-91
 #
-# The window is centred on each merged region's MIDPOINT and its width does not
+# The window is centred on each merged region's midpoint and its width does not
 # depend on the region's length, so a region longer than 2*CTRL_FLANK can fall
 # entirely outside its own window and end up with no control. That is the
 # published behaviour; check_sfs reports how much of the test set survives it.
@@ -306,7 +306,7 @@ for i in "${!beds[@]}"; do
   # recover the behaviour before that, because run_prep.sh:112 merges prep's
   # output and this stage reads prep's bed - so the bed is merged either way and
   # the branch below is cosmetic. The published runs from before 2024/11/04 (ELS,
-  # EnhA, PromF, TSS, BivProm, PLS, the phastCons17 bins - questions.md item 21)
+  # EnhA, PromF, TSS, BivProm, PLS, the phastCons17 bins)
   # therefore used an UNMERGED windowing this package does not reproduce. Measured
   # at -26 bp in 202.7 Mb for ELS, far below the bootstrap spread, which is why
   # the validation still matched. todo/tocheck.md item 1.

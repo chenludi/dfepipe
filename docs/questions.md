@@ -67,29 +67,3 @@ Recorded, not ported. Still true unless marked otherwise.
 18. Checked and **not** a bug: `dadi_cal_ll_neu_0723.py:206-214` passes an
     unfolded model against folded data, but `dadi.Inference.ll_per_bin` folds
     the model itself. Verified identical to 1e-11.
-
-## Manuscript items
-
-Recorded, not changed.
-
-19. **Control window.** The supplement says "100 kb window centered on the
-    middle of the test sites"; every run used `mid +/- 25000`, i.e. 50 kb.
-20. **Two published csv files for one bed came from different script versions.**
-    `dfe_..._gamma.csv` has `0.0` in the `>=0.5` bin, the current CDF form;
-    `dfe_..._neugamma.csv` has `9.61e-126`, exactly the commented-out `quad`
-    integration, so it predates the 2025-03-25 switch. The summary table was
-    assembled from pre-switch csv files. This package uses the CDF form, which
-    matches the original's current code.
-21. **Mixed provenance** in the published results, split by date:
-    - windowing: unmerged before 2024-11-04 (ELS, EnhA, PromF, TSS, BivProm,
-      PLS, the phastCons17 bins), merged after (PromF_TSS_BivProm, 2025 bins).
-    - dadi: demography and cache under 2.3.0, DFE fits under 2.3.3.
-
-    Both are about 1e-6 on everything measured.
-
-## How much a DFE actually moves
-
-The scale to judge any difference against. Spread across the 15 EnhA bootstrap
-replicates (Data S2a, Fig. S14): neutral bin 0.0161, other bins 0.0076-0.0089.
-The two validation runs reproduce the published bins to 8.2e-08 and 2.5e-05
-relative, both far inside that spread.
