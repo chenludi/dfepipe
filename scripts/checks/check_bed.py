@@ -30,12 +30,18 @@ genome. Two builds of the same genome differ by far less than that, so no
 coordinate test here can tell them apart.
 
     python3 check_bed.py --chroms "1 2 3 ..." [--ctrl-flank 25000]
-                        [--mask-bed <path>] [--out <dir> --run <key>] <bed>...
+                        [--mask-bed <path>] [--out <dir> --run <key>]
+                        [--reader auto|lines] <bed>...
 
 """
 import argparse
 import os
 import sys
+
+try:
+    import numpy as np
+except ImportError:        # the bulk reader is skipped, not the check
+    np = None
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from checkfile import write_check  # noqa: E402
@@ -61,13 +67,53 @@ def normalise(chrom):
     return c if c.startswith("chr") else "chr" + c
 
 
-def read_bed(path, window=0):
+class Irregular(Exception):
+    """The bulk reader met something only the line reader handles."""
+
+
+# Measured, not guessed: 1 MB is both the fastest and the leanest of 1, 2, 4, 8,
+# 16 and 32 MB on a per-base bed, because the arrays a chunk produces then stay
+# in cache. Larger chunks cost time and memory together.
+CHUNK = 1 << 20
+MAX_CHROM_BYTES = 32
+# Chromosome blocks in one chunk, not chromosomes in the bed: a chunk of a bed
+# grouped by chromosome holds one or two, an interleaved one holds as many as it
+# has lines. Past this the Python loop over blocks costs more than the bulk
+# parse saves, so the reader hands over. Per chunk, so a bed does not trip it by
+# being long.
+MAX_BLOCKS = 4096
+
+
+def blank_stats():
+    return {"n": 0, "bp": 0, "max_end": 0, "longest": 0, "n_long": 0,
+            "bp_long": 0, "unsorted": 0, "overlaps": 0,
+            "prev_end": -1, "prev_start": -1}
+
+
+def read_bed(path, window=0, reader="auto"):
     """(per-chrom stats, problems). Streams, so a 100 MB bed is fine.
 
     `window` is 2 x CTRL_FLANK; intervals longer than it are counted as they go,
     because how many there are and how much sequence they hold is what decides
     whether the control window needs rethinking.
+
+    Two readers, one result. read_bed_lines is the reference: it owns every
+    message a malformed bed produces. read_bed_numpy parses in bulk, measured
+    13x faster on a bed of 5 million intervals, but handles only a well-formed
+    bed and returns None for anything else, so the reference reader still
+    decides what is wrong with it. reader="lines" forces the reference, for the
+    tests and for a bed whose verdict is ever in doubt. tests/
+    test_check_bed_readers.py holds them to the same answer.
     """
+    if reader != "lines":
+        bulk = read_bed_numpy(path, window)
+        if bulk is not None:
+            return bulk
+    return read_bed_lines(path, window)
+
+
+def read_bed_lines(path, window=0):
+    """The reference reader: one Python pass, every message this check emits."""
     stats = {}
     problems = []
     n = 0
@@ -97,10 +143,11 @@ def read_bed(path, window=0):
                 if len(problems) > 5:
                     break
                 continue
-            s = stats.setdefault(f[0], {"n": 0, "bp": 0, "max_end": 0,
-                                        "longest": 0, "n_long": 0, "bp_long": 0,
-                                        "unsorted": 0, "overlaps": 0,
-                                        "prev_end": -1, "prev_start": -1})
+            # get, not setdefault: setdefault builds the default dict on every
+            # line whether or not the chromosome is new.
+            s = stats.get(f[0])
+            if s is None:
+                s = stats[f[0]] = blank_stats()
             s["n"] += 1
             s["bp"] += end - start
             s["max_end"] = max(s["max_end"], end)
@@ -117,6 +164,162 @@ def read_bed(path, window=0):
     if not n and not problems:
         problems.append("no usable interval found")
     return stats, problems
+
+
+def read_bed_numpy(path, window=0):
+    """The same stats as read_bed_lines, or None if this reader cannot be sure.
+
+    It hands over - rather than guessing - for numpy missing, a comment, track
+    or blank line, a column count that is not the same on every line, a
+    coordinate that is empty or not all digits, an interval whose end is not
+    after its start, a line longer than CHUNK, or a bed with no usable interval.
+    So a bed that reaches here is well formed, and anything else is reported by
+    the reference reader in its own words.
+    """
+    if np is None:
+        return None
+    stats = {}
+    try:
+        with open(path, "rb") as fh:
+            tail = b""
+            while True:
+                block = fh.read(CHUNK)
+                if not block:
+                    break
+                if tail:
+                    block = tail + block
+                cut = block.rfind(b"\n") + 1
+                if not cut:
+                    raise Irregular("a line longer than CHUNK")
+                tail = block[cut:]
+                scan_chunk(block[:cut], window, stats)
+            if tail.strip():
+                scan_chunk(tail + b"\n", window, stats)
+    except Irregular:
+        return None
+    if not sum(s["n"] for s in stats.values()):
+        return None                # empty or all comments: the reference says so
+    return stats, []
+
+
+def parse_digits(a, lo, hi):
+    """Decimal value of a[lo:hi] for every row, right to left.
+
+    One pass per digit position. Up to the shortest field every row is still
+    live, which is the common case because coordinates on a chromosome mostly
+    have the same number of digits, so those passes skip the bounds mask
+    entirely.
+    """
+    width = hi - lo
+    wmin, wmax = int(width.min()), int(width.max())
+    if wmin < 1:
+        raise Irregular("an empty coordinate field")
+    if wmax > 18:
+        raise Irregular("a coordinate of more than 18 digits")
+    # A coordinate of 9 digits reaches 10^9; the running value, and 10^j times a
+    # digit, both stay inside int32 well past any real chromosome.
+    out = np.zeros(lo.size, dtype=np.int32 if wmax <= 9 else np.int64)
+    for j in range(wmax):
+        at = hi - 1 - j
+        live = None if j < wmin else at >= lo
+        # uint8 subtraction wraps, so one comparison catches every non-digit.
+        digit = a[at if live is None else np.maximum(at, lo)] - np.uint8(48)
+        bad = digit > np.uint8(9)
+        if live is not None:
+            bad &= live
+        if bad.any():
+            raise Irregular("a coordinate that is not all digits")
+        step = digit.astype(out.dtype)
+        if live is not None:
+            step *= live
+        out += step * out.dtype.type(10 ** j)
+    return out.astype(np.int64)
+
+
+def scan_chunk(buf, window, stats):
+    """Fold one whole-line chunk into `stats`."""
+    a = np.frombuffer(buf, dtype=np.uint8)
+    ends = np.flatnonzero(a == 10)
+    if not ends.size:
+        raise Irregular("no complete line")
+    starts = np.empty(ends.size, dtype=np.int64)
+    starts[0] = 0
+    starts[1:] = ends[:-1] + 1
+    # Any line opening with '#' or 't' goes to the reference reader, which is
+    # wider than the comment and track lines it is aimed at but costs nothing: no
+    # chromosome name starts with either. 10 and 13 are blank and bare-CR lines;
+    # a CRLF bed is caught later, by the stray '\r' in its end coordinate.
+    head = a[starts]
+    if ((head == 35) | (head == 116) | (head == 10) | (head == 13)).any():
+        raise Irregular("a comment, track, blank or bare-CR line")
+
+    tabs = np.flatnonzero(a == 9)
+    if tabs.size < 2 * ends.size or tabs.size % ends.size:
+        raise Irregular("the column count is not the same on every line")
+    ncol = tabs.size // ends.size
+    tabs = tabs.reshape(ends.size, ncol)
+    # These two make the reshape above exact, not merely plausible. tabs is
+    # sorted, so if row k's first tab is past line k's start and its last is
+    # before line k's end, all ncol of them are inside line k - and line k holds
+    # at least ncol. Every tab is inside some line, and there are exactly
+    # ncol x lines of them, so each line holds exactly ncol. A line with a
+    # different count cannot satisfy both.
+    if not ((tabs[:, 0] > starts).all() and (tabs[:, -1] < ends).all()):
+        raise Irregular("the column count is not the same on every line")
+
+    beg = parse_digits(a, tabs[:, 0] + 1, tabs[:, 1])
+    fin = parse_digits(a, tabs[:, 1] + 1, tabs[:, 2] if ncol > 2 else ends)
+    span = fin - beg
+    if (span <= 0).any():
+        raise Irregular("an interval whose end is not after its start")
+
+    # Chromosome blocks: compare each name with the one above, so a bed grouped
+    # by chromosome costs a few passes however long it is.
+    width = tabs[:, 0] - starts
+    wmax = int(width.max())
+    if wmax > MAX_CHROM_BYTES:
+        raise Irregular("a chromosome name over %d bytes" % MAX_CHROM_BYTES)
+    same = width[1:] == width[:-1]
+    for i in range(wmax):
+        col = np.where(width > i, a[np.minimum(starts + i, a.size - 1)], 0)
+        same &= col[1:] == col[:-1]
+    edge = np.flatnonzero(~same) + 1
+    blk_beg = np.concatenate(([0], edge))
+    blk_end = np.concatenate((edge, [ends.size]))
+
+    if blk_beg.size > MAX_BLOCKS:
+        raise Irregular("more than %d chromosome blocks in one chunk"
+                        % MAX_BLOCKS)
+
+    for lo, hi in zip(blk_beg.tolist(), blk_end.tolist()):
+        try:
+            chrom = a[starts[lo]:tabs[lo, 0]].tobytes().decode("ascii")
+        except UnicodeDecodeError:
+            raise Irregular("a chromosome name that is not ascii")
+        s = stats.get(chrom)
+        if s is None:
+            s = stats[chrom] = blank_stats()
+        b, f, d = beg[lo:hi], fin[lo:hi], span[lo:hi]
+        s["n"] += int(d.size)
+        s["bp"] += int(d.sum())
+        s["max_end"] = max(s["max_end"], int(f.max()))
+        s["longest"] = max(s["longest"], int(d.max()))
+        if window:
+            long_one = d > window
+            if long_one.any():
+                s["n_long"] += int(long_one.sum())
+                s["bp_long"] += int(d[long_one].sum())
+        # The line before, per chromosome, carried across blocks and chunks.
+        was_beg = np.empty(d.size, dtype=np.int64)
+        was_beg[0] = s["prev_start"]
+        was_beg[1:] = b[:-1]
+        was_fin = np.empty(d.size, dtype=np.int64)
+        was_fin[0] = s["prev_end"]
+        was_fin[1:] = f[:-1]
+        unsorted = b < was_beg
+        s["unsorted"] += int(unsorted.sum())
+        s["overlaps"] += int((~unsorted & (b < was_fin)).sum())
+        s["prev_start"], s["prev_end"] = int(b[-1]), int(f[-1])
 
 
 def mask_extents(path):
@@ -220,7 +423,7 @@ def assess(bed, stats, problems, chroms, ctrl_flank, mask=None):
     return ("WARN" if reasons else "PASS"), reasons, bp
 
 
-def rows_for(beds, chroms, ctrl_flank, mask_bed=None):
+def rows_for(beds, chroms, ctrl_flank, mask_bed=None, reader="auto"):
     mask = mask_extents(mask_bed)
     out = []
     for bed in beds:
@@ -230,7 +433,8 @@ def rows_for(beds, chroms, ctrl_flank, mask_bed=None):
                         "bp": 0, "reason": "missing or empty: %s" % bed})
             continue
         try:
-            stats, problems = read_bed(bed, window=2 * ctrl_flank)
+            stats, problems = read_bed(bed, window=2 * ctrl_flank,
+                                       reader=reader)
         except OSError as exc:
             out.append({"item": item, "status": "FAIL", "n_intervals": 0,
                         "bp": 0, "reason": "cannot read %s: %s" % (bed, exc)})
@@ -252,6 +456,9 @@ def main(argv=None):
     ap.add_argument("--ctrl-flank", type=int,
                     default=conf.get_int("CTRL_FLANK", 25000))
     ap.add_argument("--mask-bed", default=os.environ.get("MASK_BED", ""))
+    ap.add_argument("--reader", default="auto", choices=("auto", "lines"),
+                    help="auto parses in bulk and falls back; lines forces "
+                         "the reference reader")
     ap.add_argument("--out", default="", help="where to write the check file")
     ap.add_argument("--run", default="", help="run key, for the file name")
     ap.add_argument("beds", nargs="+")
@@ -267,7 +474,8 @@ def main(argv=None):
     if not chroms:
         sys.stderr.write("check_bed: no chromosomes to analyse\n")
         return 2
-    rows = rows_for(a.beds, chroms, a.ctrl_flank, a.mask_bed or None)
+    rows = rows_for(a.beds, chroms, a.ctrl_flank, a.mask_bed or None,
+                    reader=a.reader)
     if a.out and a.run:
         os.makedirs(a.out, exist_ok=True)
         path = os.path.join(a.out, CHECK_TEMPLATE % a.run)

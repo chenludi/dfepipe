@@ -17,7 +17,7 @@ number, stop and ask.
 1000 Genomes VCFs and accessibility mask, GENCODE CDS, Ernst ChromHMM states,
 ENCODE cCREs in the control definition, and Roulette mutation rates with a
 human-specific scale constant. Another species is a porting project, not a
-configuration change — see `todo/vendor_and_docs.md`.
+configuration change — see `TODO.md`.
 
 ## 1. What the pipeline does, in four sentences
 
@@ -70,6 +70,14 @@ python3 scripts/checks/check_bed.py --mask-bed "$MASK_BED" their.bed
 It reads `CHROMS` and `CTRL_FLANK` from `config/pipeline.conf` itself, so do not
 pass them: a profile does not export `CHROMS`, and passing an empty one used to
 fail every bed while blaming the chromosome names.
+
+Its cost is per interval, not per bp, which matters for a near-per-base bed: the
+39 phyloP cross-bin beds hold 1.39 billion intervals at about 1 bp each, and the
+original per-line reader needed ~89 minutes on them - long enough for the login
+node to kill it. It now parses in bulk with numpy (measured 13x) and falls back
+to the per-line reader, which still owns every message, for any bed that is not
+well formed. `--reader lines` forces that reference reader if a verdict ever
+looks wrong.
 
 ### 2b. The demographic model — the one real science choice
 
@@ -136,7 +144,7 @@ it is for. It is a template and will not run as-is.
 | `CTRL_FLANK` | `25000` | control window is midpoint ± this. **Changing it changes which controls pair with which targets for every annotation** — a science decision, not a tuning knob |
 | `PROJECTION` | `160` | sites genotyped in fewer chromosomes are dropped; trades sites for sample size |
 | `PDFS` | `neu gamma neugamma` | which DFE shapes to fit. `neu` is the null; `neugamma` adds a neutral spike |
-| `MERGE_BEFORE_WINDOW` | `0` | **currently has no effect** - `run_prep.sh` already merges, so the bed reaching sfs is merged either way. Verified on chr22: re-merging changes neither the interval count nor the bp. `todo/tocheck.md` item 1 |
+| `MERGE_BEFORE_WINDOW` | `0` | **currently has no effect** - `run_prep.sh` already merges, so the bed reaching sfs is merged either way. Verified on chr22: re-merging changes neither the interval count nor the bp. `TODO.md` open question 1 |
 | `CHROMS` | `1`–`22` | only for a deliberate subset; concat refuses a partial set otherwise |
 
 ### Tier 3 — tell the user these exist, then leave them alone
@@ -245,6 +253,22 @@ cat $OUT/dfe/check_dfe.$CACHE_RUN-$CACHE_MARKER-<pdf>-$DFE_RUN.tsv
 cat $OUT/summary/check_summary.$SUMMARY_RUN.tsv
 ```
 
+### Which pdf's residuals to look at
+
+Judge the fit on the best-fit model, plus at most a couple of close runners-up.
+Unless the user asks for more, that is the whole check.
+
+Do not report the `neu` pdf's residuals as a fit problem. `neu` is the
+no-selection model, so a large deviance there is the signature of selection, not
+a defect: on the beds run so far every `neu` row is WARN while the best-fit
+model passes, and adding selection cuts the deviance per SNP by one to two
+orders of magnitude.
+
+`bestpdf_sumdfe.tsv` names the winner in `pdf_best_chi_5%`, `pdf_best_delta_50`
+and `pdf_best_allconfidence`, with `modelsel_level` saying which rule decided.
+`neugamma` is redundant where its `pneu` is 0 and `ll_neugamma-ll_gamma` is 0 to
+rounding.
+
 `fit_outcomes.tsv` in each DFE run directory records what became of every
 starting point, with a severity saying what to do:
 
@@ -313,7 +337,7 @@ nearly invisible.
 - **Promise a number that matches a published table exactly.** This pipeline
   takes the *best* converged fit; the original took the last, which was the
   worst. That is the one deliberate numerical difference, ~1e-7 in practice but
-  unbounded for a poorly converged file. See `todo/tocheck.md` item 2.
+  unbounded for a poorly converged file. See `TODO.md` open question 2.
 - **Claim the assembly was checked when it was not.** The preflight says so
   explicitly when it could not check.
 
@@ -332,22 +356,19 @@ scripts/sge/           submit_*.sh and worker_*.sh, one pair per array stage
 scripts/checks/        check_*.py, one per stage, plus check_bed.py and gate.py
 sync/push.sh           copy the package to a cluster; CHECK=1 compares
 setup/setup.sh         build the conda env with the patched dadi
-todo/                  what is known to be unfinished, and why
+TODO.md                known-unfinished work, and why
+todo/                  detail behind TODO.md, one file per topic
 records/               what was actually run, dated
 ```
 
-Known-unfinished work is in `todo/`, not hidden: `tocheck.md` (open questions
-about the pipeline's own behaviour), `final_clean_rerun.md` (the acceptance
-test), `vendor_and_docs.md` (what is still outside the package, and the `FORCE=1`
-overloading). **Read `todo/` before telling a user this package is finished** —
-each file records a dated incident, and they are the reason most of the guards
-exist.
+**Read `TODO.md` before telling a user this package is finished.** It lists the
+known-unfinished work and indexes `todo/`, which holds the detail.
 
 `records/` holds what was actually run, dated. `records/260929_dfe_validation.sh`
 is the most useful single file for seeing a real invocation end to end, though
 note it predates the `CACHE_MARKER` directory naming.
 
-### Three things that look like breakage and are not
+### Four things that look like breakage and are not
 
 - **~22% of DFE starting points return `no_bestfit`.** The grid log-spaces shape
   from 1e-10, and the smallest seeds cannot produce a likelihood. By design.
@@ -355,3 +376,5 @@ note it predates the `CACHE_MARKER` directory naming.
   original, not introduced; larger grids were tested and did not help.
 - **A `RESUME` run logs a `fitneu` failure.** `run_fitneu.sh` refuses an existing
   run directory and ignores `RESUME`. The neutral likelihood is already there.
+- **Every `neu` row is WARN.** The neutral model is not meant to fit a selected
+  region. Read the fit off the best-fit pdf instead.
