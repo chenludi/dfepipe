@@ -1,9 +1,18 @@
 #!/bin/bash
 # submit_sfs.sh <bed> [bed...]
 #
-# One array job over CHROMS: control pairing and the VCF intersect are the slow
-# part of this pipeline and are independent per chromosome, so they run in
-# parallel. Every task handles every bed for its own chromosome.
+# One array job over CHROMS x beds: control pairing and the VCF intersect are
+# the slow part of this pipeline and are independent per chromosome and per
+# bed, so every (chromosome, bed) pair is its own task.
+#
+# It used to be one task per chromosome, looping over the beds inside. That
+# made a task's runtime scale with the number of beds while SGE_SFS_RT stayed
+# one number for the stage, so three beds took three times as long for no
+# reason and h_rt had to be raised by hand to cover it.
+#
+# The task index counts beds fastest, chromosomes slowest, and worker_sfs.sh
+# reverses exactly that. Both sides derive it from CHROMS and the bed list,
+# which are forwarded verbatim, so they cannot disagree.
 #
 #   TERSE=1   print only the job id, for chaining
 #   HOLD=<id> hold until that job finishes (e.g. the prep job)
@@ -73,7 +82,7 @@ job_env="REPO_DIR=${REPO_DIR},OUT=${OUT},FS_RUN=${FS_RUN},PREP_RUN=${PREP_RUN},C
 [[ -n "${SKIP_GATE:-}" ]] && job_env="${job_env},SKIP_GATE=${SKIP_GATE}"
 qsub ${TERSE:+-terse} \
   -N "dfe_sfs_${FS_RUN}" \
-  -t "1-${n_chroms}" \
+  -t "1-$(( n_chroms * ${#beds[@]} ))" \
   -cwd -j y -V \
   -o "${log_dir}/sfs.${FS_RUN}.\$JOB_ID.\$TASK_ID.log" \
   -l h_rt="${SGE_SFS_RT}",h_data="${SGE_SFS_MEM}" \

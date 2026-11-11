@@ -32,7 +32,7 @@ Summary row:
           beds are under 0.90, down to 0.790, so this is a condition to read and
           judge, not one to stop on.
 
-FOR REFERENCE ONLY applies to the WARN, as everywhere in this pipeline: it means
+The "for reference only" label applies to the WARN, as everywhere in this pipeline: it means
 "this is worth a look", not "wrong", and it does not block.
 """
 import argparse

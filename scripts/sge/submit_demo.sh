@@ -95,7 +95,7 @@ job_env="${job_env},DEMO_P0_FILES=${p0files[*]}"
 [[ -n "${SKIP_GATE:-}" ]] && job_env="${job_env},SKIP_GATE=${SKIP_GATE}"
 qsub ${TERSE:+-terse} \
   -N "dfe_demo_${DEMO_RUN}" \
-  -t "1-${#p0files[@]}" \
+  -t "1-$(( ${#p0files[@]} * ${#beds[@]} ))" \
   -cwd -j y -V \
   -o "${log_dir}/demo.${DEMO_RUN}.\$JOB_ID.\$TASK_ID.log" \
   -l h_rt="${SGE_DEMO_RT}",h_data="${SGE_DEMO_MEM}" \

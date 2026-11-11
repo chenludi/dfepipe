@@ -30,6 +30,11 @@ fi
 # The job's working directory is not the submitting one for relative lookups we
 # can rely on, so bed arguments are resolved here, while the caller's $PWD still
 # means something.
+# Deliberately not an array over beds, unlike sfs and demo. run_prep.sh runs
+# check_bed.py and check_prep.py itself (run_prep.sh:153,157) and both write one
+# file for the whole stage, so parallel tasks would race on it. Prep is also the
+# cheap stage - 64 s a bed, about 3 min for three - so splitting it would buy
+# minutes and cost a check file. Move the checks to their own step first.
 beds=()
 for bed in "$@"; do
   case "$bed" in
