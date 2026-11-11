@@ -26,7 +26,8 @@ typical:
 * 66 intervals are out of coordinate order. prep sorts anyway.
 
 No interval exceeds `2 x CTRL_FLANK`; the longest is 917 bp. So the long-interval
-control-window problem (`TODO.md`, open question 1) does not arise here.
+control-window problem (`todo/README.md`, open question 1) does not arise
+here.
 
 ## The command
 

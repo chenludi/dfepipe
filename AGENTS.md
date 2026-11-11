@@ -17,7 +17,7 @@ number, stop and ask.
 1000 Genomes VCFs and accessibility mask, GENCODE CDS, Ernst ChromHMM states,
 ENCODE cCREs in the control definition, and Roulette mutation rates with a
 human-specific scale constant. Another species is a porting project, not a
-configuration change — see `TODO.md`.
+configuration change — see `todo/README.md`.
 
 ## 1. What the pipeline does, in four sentences
 
@@ -144,7 +144,7 @@ it is for. It is a template and will not run as-is.
 | `CTRL_FLANK` | `25000` | control window is midpoint ± this. **Changing it changes which controls pair with which targets for every annotation** — a science decision, not a tuning knob |
 | `PROJECTION` | `160` | sites genotyped in fewer chromosomes are dropped; trades sites for sample size |
 | `PDFS` | `neu gamma neugamma` | which DFE shapes to fit. `neu` is the null; `neugamma` adds a neutral spike |
-| `MERGE_BEFORE_WINDOW` | `0` | **no effect when prep runs** - `run_prep.sh` already merges, so the bed reaching sfs is merged either way. Verified on chr22: re-merging changes neither the interval count nor the bp. It does matter with `FROM=sfs`, which skips prep: the phyloP runs set it to 1 for exactly that reason. `TODO.md` open question 1 |
+| `MERGE_BEFORE_WINDOW` | `0` | **no effect when prep runs** - `run_prep.sh` already merges, so the bed reaching sfs is merged either way. Verified on chr22: re-merging changes neither the interval count nor the bp. It does matter with `FROM=sfs`, which skips prep: the phyloP runs set it to 1 for exactly that reason. `todo/README.md` open question 1 |
 | `CHROMS` | `1`–`22` | only for a deliberate subset; concat refuses a partial set otherwise |
 
 ### Tier 3 — tell the user these exist, then leave them alone
@@ -397,13 +397,12 @@ scripts/sge/           submit_*.sh and worker_*.sh, one pair per array stage
 scripts/checks/        check_*.py, one per stage, plus check_bed.py and gate.py
 sync/push.sh           copy the package to a cluster; CHECK=1 compares
 setup/setup.sh         build the conda env with the patched dadi
-TODO.md                known-unfinished work, and why
-todo/                  detail behind TODO.md, one file per topic
+todo/                  known-unfinished work, and why. Start at todo/README.md
 records/               what was actually run, dated
 ```
 
-**Read `TODO.md` before telling a user this package is finished.** It lists the
-known-unfinished work and indexes `todo/`, which holds the detail.
+**Read `todo/README.md` before telling a user this package is finished.** It
+lists the known-unfinished work and indexes the two files beside it.
 
 `records/` holds what was actually run, dated. `records/260929_dfe_validation.sh`
 is the most useful single file for seeing a real invocation end to end, though

@@ -72,7 +72,7 @@ vanishing and reappearing an hour later is normal.
 | `docs/PIPELINE.md` | per-stage detail: what each stage reads and writes, what every threshold means and why it is the number it is |
 | `examples/encode_els/` | one worked run on ENCODE enhancer-like signatures, with the expected outputs and what it cost |
 | `docs/io_schematic.pdf` | the picture above; `docs/pipeline_schematic.pdf` draws the same pipeline as jobs |
-| `TODO.md` | known-unfinished work, and the open questions |
+| `todo/README.md` | known-unfinished work, and the open questions |
 
 Results from this package reproduce the published values it was built against to
 well inside the bootstrap spread.
