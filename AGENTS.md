@@ -398,15 +398,12 @@ scripts/checks/        check_*.py, one per stage, plus check_bed.py and gate.py
 sync/push.sh           copy the package to a cluster; CHECK=1 compares
 setup/setup.sh         build the conda env with the patched dadi
 todo/                  known-unfinished work, and why. Start at todo/README.md
-records/               what was actually run, dated
 ```
 
 **Read `todo/README.md` before telling a user this package is finished.** It
 lists the known-unfinished work and indexes the two files beside it.
 
-`records/` holds what was actually run, dated. `records/260929_dfe_validation.sh`
-is the most useful single file for seeing a real invocation end to end, though
-note it predates the `CACHE_MARKER` directory naming.
+`examples/` is the place to see a real invocation end to end.
 
 ### Four things that look like breakage and are not
 

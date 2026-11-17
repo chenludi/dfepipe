@@ -42,7 +42,7 @@ manuscript. The run keys used here were `prep_261025`, `fs_261025`,
 those variables.
 
 The real run was three beds in one chain (ELS and its two ChromHMM-promoter
-subsets) - see `records/261025_els_prom_run.sh`, which is the record of it.
+subsets).
 
 ## What you should get
 
